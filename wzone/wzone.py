@@ -505,40 +505,53 @@ def my_request_notification_list():
         # Check if the application type exists
         app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": application_type})
         if not app_exists:
-            return jsonify({"msg": "Application type does not exist."}), 400 
+            return jsonify({"msg": "application type does not exist."}), 400  
+
+        # response_data = {
+        #     'username': username,
+        #     'notifications': []
+        # }
+        response_data=[]
+        
+        query = {
+            'app_source': application_type,  
+            'notify_from_id': username,
+            'notify_status':notification_status
+        }
+        
+        # Fetch data using query
+        notifications = mongo.db.mpwz_notifylist.find(query)
+        unique_button_names = mongo.db.mpwz_buttons.distinct('button_name')
+
+        for notification in notifications:
+            notification_copy = notification.copy()  
+            notification_copy.pop('_id', None) 
+            notification_copy['buttons'] = unique_button_names  
+            response_data.append(notification_copy) 
+            # response_data['notifications'].append(notification_copy) 
+
+        # Log the response statuses
+        # if response_data['notifications']:
+        if response_data:
+            response_statuses = []
+            # for notification in response_data['notifications']:
+            for notification in response_data:
+                status_response1 = {key: value for key, value in notification.items()}  
+                status_response1['action_by'] = {'username': username}
+                status_response1['action_at'] = datetime.datetime.now().isoformat()
+                response_statuses.append(status_response1)
+
+                # Make logs entry in table  
+                request_data = {'username': username}
+                request_data['current_api'] = request.full_path
+                request_data['client_ip'] = request.remote_addr
+                log_entry_event.log_api_call(request_data, {"msg": "action pending info list loaded successfully", "BearrToken": response_statuses})       
         else:
-            response_data=[]
-            query = {
-                'app_source': application_type,
-                'notify_from_id': username,
-                'notify_status':notification_status
-            }
-
-            if notification_status:
-                query['notify_status'] = notification_status
-
-            # Fetching notifications by query
-            notifications = mongo.db.mpwz_notifylist.find(query)
-
-            # Process notifications
-            for notification in notifications:
-                notification_copy = notification.copy()  
-                notification_copy.pop('_id', None) 
-                response_data.append(notification_copy) 
-
-            # Log the notification list retrieval
-            request_data = {'username': username}
-            request_data['current_api'] = request.full_path
-            request_data['client_ip'] = request.remote_addr
-            log_entry_event.log_api_call(request_data, {"msg": "My request info list loaded successfully", "BearrToken": response_data['notifications']})
-
-        if not response_data['notifications']:
-            return jsonify({"msg": f"No notifications found for user:- {username}"}), 404
-        else:
-            return jsonify(response_data), 200
+            return jsonify({"msg": f"No pending notifications found for {username}."}), 400
+        return jsonify(response_data), 200
     except Exception as e:
-        return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
-
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+     
 @app.route('/pending-notify-count', methods=['GET'])
 @jwt_required()
 def pending_notification_count():
@@ -629,10 +642,7 @@ def pending_notification_list():
             'notify_to_id': username,
             'notify_status':notification_status
         }
-
-        if notification_status:
-            query['notify_status'] = notification_status
-
+        
         # Fetch data using query
         notifications = mongo.db.mpwz_notifylist.find(query)
         unique_button_names = mongo.db.mpwz_buttons.distinct('button_name')
