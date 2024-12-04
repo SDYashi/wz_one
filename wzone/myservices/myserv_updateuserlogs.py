@@ -11,15 +11,10 @@ class myserv_updateuserlogs:
         self.collection = dbconnect['mpwz_users_logs']  
         self.api_call_history = [] 
 
-    def log_api_call(self, request_data, response_data):
-        log_entry = {
-            "timestamp": datetime.datetime.now().isoformat(),
-            "request": request_data,
-            "response": response_data
-        }        
-        self.collection.insert_one(log_entry)
-        self.api_call_history.append(log_entry)
-        print("API Calling:",log_entry,"\n")
+    def log_api_call(self, response_data):
+        self.collection.insert_one(response_data)
+        self.api_call_history.append(response_data)
+        print("API Calling:",response_data,"\n")
 
     def get_current_datetime(self):
         now =  datetime.datetime.now().isoformat()

@@ -83,11 +83,9 @@ def login():
                       
                 else:                                            
                     print("New Token Issued for mobile users only")  
-                    access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(hours=1))
-
-                request_data = username
-                response_data = {"message": "Logged in successfully", "BearerToken": access_token}
-                log_entry_event.log_api_call(request_data, response_data)
+                    access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=30))
+                response_data = {"request_by":username,"message": "Logged in successfully", "BearerToken": access_token}
+                log_entry_event.log_api_call(response_data)
                 return jsonify(access_token=access_token), 200            
             else:
                 return jsonify({"msg": "Invalid username or password"}), 401
@@ -111,18 +109,17 @@ def change_password():
         # Update the password in the database
         response = mongo.db.mpwz_users.update_one({"username": username}, {"$set": {"password": hashed_password}})
         if response.modified_count == 0:
-            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400
-        
-        response_data = {
-            "msg": "Password Changed successfully",
-            "BearrToken": username,
-            "current_api": request.full_path,
-            "client_ip": request.remote_addr,
-            "action_by": username,
-            "action_at": datetime.datetime.now().isoformat()
-        } 
-        log_entry_event.log_api_call(data, response_data)
-        return jsonify({"msg": "Password changed successfully!"}), 200
+            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400        
+        else: 
+            response_data = {
+                "msg": "Password Changed successfully",
+                "BearrToken": username,
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": datetime.datetime.now().isoformat()
+            } 
+            log_entry_event.log_api_call(response_data)
+            return jsonify({"msg": "Password changed successfully!"}), 200
     except Exception as error:
         return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
 
@@ -142,16 +139,16 @@ def change_password_byadmin_forany():
         # Update the password in the database
         response = mongo.db.mpwz_users.update_one({"username": username_user}, {"$set": {"password": hashed_password}})
         if response.modified_count == 0:
-            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400
-        response_data = {
-            "msg": f"Password Changed successfully for {username_user}",
-            "BearrToken": username,
-            "current_api": request.full_path,
-            "client_ip": request.remote_addr,
-            "action_by": username,
-            "action_at": datetime.datetime.now().isoformat()
-        } 
-        log_entry_event.log_api_call(data, response_data)
+            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400        
+        else: 
+            response_data = {
+                "msg": "Password Changed successfully",
+                "BearrToken": username,
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": datetime.datetime.now().isoformat()
+            } 
+            log_entry_event.log_api_call(response_data)
         return jsonify({"msg": "Password changed successfully!"}), 200
     except Exception as error:
         return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
@@ -161,7 +158,6 @@ def change_password_byadmin_forany():
 def view_profile():
     try:
         username = get_jwt_identity()
-        request_data = {}
         # Retrieve the user profile from the database
         user = mongo.db.mpwz_users.find_one({"employee_number": username}, {"_id": 0})
 
@@ -169,21 +165,14 @@ def view_profile():
             for key, value in user.items():
                 if isinstance(value, bytes):
                     user[key] = base64.b64encode(value).decode('utf-8')  
-
-            request_data['current_api'] = request.full_path
-            request_data['client_ip'] = request.remote_addr
-            user['action_by']=username
-            user['action_at']=datetime.datetime.now().isoformat()
-
             response_data = {
                 "msg": "User Profile loaded successfully",
-                "BearrToken": user,
-                "action_by": username,
-                "action_at": datetime.datetime.now().isoformat()
+                "BearrToken": username,
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": datetime.datetime.now().isoformat()
             }
-
-            # Log the API call
-            log_entry_event.log_api_call(request_data, response_data)
+            log_entry_event.log_api_call(response_data)
             return jsonify(user), 200
         else:
             return jsonify({"msg": "User not found in records"}), 404
@@ -196,25 +185,20 @@ def view_profile():
 def notify_status():
     try:
         username = get_jwt_identity()
-        # username = current_user['username']
-        request_data = {}
         if request.method == 'GET':
             statuses = list(mongo.db.mpwz_notify_status.find())
             if statuses:
                 response_statuses = []
                 for status in statuses:
-                    # Creating new dictionary to remove _id from response
-                    status_response = {key: value for key, value in status.items() if key != '_id'}
-                    status_response['action_by'] = username
-                    status_response['action_at'] = datetime.datetime.now().isoformat()
-                    response_statuses.append(status_response)
-
-                    # Make log entry in table   
-                    request_data['current_api'] = request.full_path
-                    request_data['client_ip'] = request.remote_addr
-                    response_data = {"msg": "User  Profile loaded successfully", "BearrToken": response_statuses}                     
-                    log_entry_event.log_api_call(request_data, response_data)
-
+                        # Creating new dictionary to remove _id from response
+                        status_response = {key: value for key, value in status.items() if key != '_id'}
+                        status_response['response_at'] = datetime.datetime.now().isoformat()
+                        status_response['current_api'] = request.full_path
+                        status_response['client_ip'] = request.remote_addr
+                        response_statuses.append(status_response)
+                        # Log entry in table 
+                        response_data = {"msg": "Application buttons loaded successfully", "BearrToken": response_statuses}
+                        log_entry_event.log_api_call(response_data)
                 return jsonify(response_statuses), 200
             else:
                 return jsonify({"statuses": "No button_name added by mpwz admin"}), 404
@@ -240,13 +224,11 @@ def notify_status():
                 result = mongo.db.mpwz_notify_status.insert_one(new_status)
                 if result:
                     new_status['_id'] = str(result.inserted_id)  
-                    new_status['server_response'] = "New status added successfully"  
-                    # Make log entry in table        
-                    request_data = data 
-                    request_data['current_api'] = request.full_path
-                    request_data['client_ip'] = request.remote_addr
+                    new_status['current_api'] = request.full_path
+                    new_status['client_ip'] = request.remote_addr
+                    new_status['response_at'] = datetime.datetime.now().isoformat()
                     response_data = {"msg": "New Status Added successfully", "BearrToken": new_status}                     
-                    log_entry_event.log_api_call(request_data, response_data)
+                    log_entry_event.log_api_call(response_data)
                     return jsonify(new_status), 201
                 else:
                     return jsonify({"msg": "Error while adding new status into database"}), 500
@@ -268,16 +250,14 @@ def notify_integrated_applist():
                 for status in statuses:
                     # Creating new dictionary to remove _id from response
                     status_response = {key: value for key, value in status.items() if key != '_id'}
-                    status_response['action_by'] = {'username': username}
-                    status_response['action_at'] = datetime.datetime.now().isoformat()
+                    status_response['response_at'] = datetime.datetime.now().isoformat()      
+                    status_response['username']  = username
+                    status_response['current_api'] = request.full_path
+                    status_response['client_ip'] = request.remote_addr
                     response_statuses.append(status_response)
-
-                    # Make log entry in table        
-                    request_data = {'username': username}
-                    request_data['current_api'] = request.full_path
-                    request_data['client_ip'] = request.remote_addr
-                    response_data = {"msg": "New App integrated successfully", "BearrToken": response_statuses}                     
-                    log_entry_event.log_api_call(request_data, response_data)
+                    # Make log entry in table  
+                    response_data = {"msg": "Integrated App List loaded successfully", "BearrToken": response_statuses}                     
+                    log_entry_event.log_api_call(response_data)
 
                 return jsonify(response_statuses), 200
             else:
@@ -305,13 +285,11 @@ def notify_integrated_applist():
                 result = mongo.db.mpwz_integrated_app.insert_one(app_name_list)
                 if result:
                     app_name_list['_id'] = str(result.inserted_id)
-                    app_name_list['server_response'] = "New app integration info added successfully"
-                    # Make log entry in table        
-                    request_data = data
-                    request_data['current_api'] = request.full_path
-                    request_data['client_ip'] = request.remote_addr
+                    app_name_list['current_api'] = request.full_path
+                    app_name_list['client_ip'] = request.remote_addr
+                    app_name_list['response_at'] = datetime.datetime.now().isoformat()
                     response_data = {"msg": "New App integrated successfully", "BearrToken": app_name_list}                     
-                    log_entry_event.log_api_call(request_data, response_data)
+                    log_entry_event.log_api_call(response_data)
                     return jsonify(app_name_list), 200
                 else:
                     return jsonify({"msg": "Unable to add new app details in the system, try again..."}), 500
@@ -326,7 +304,6 @@ def notify_integrated_applist():
 def action_history():
     try:
         username = get_jwt_identity()
-        # username = current_user['username']
         application_type = request.args.get('application_type')
         if request.method == 'GET':
             if application_type:
@@ -350,15 +327,13 @@ def action_history():
                     for status in action_history_records:
                         # Creating new dictionary to remove _id from response
                         status_response = {key: value for key, value in status.items() if key != '_id'}
-                        status_response['action_by'] = username
-                        status_response['action_at'] = datetime.datetime.now().isoformat()
+                        status_response['response_at'] = datetime.datetime.now().isoformat()      
+                        status_response['username']  = username
+                        status_response['current_api'] = request.full_path
+                        status_response['client_ip'] = request.remote_addr
                         response_statuses.append(status_response)
-                        # Log entry in table  
-                        request_data = username
-                        request_data['current_api'] = request.full_path
-                        request_data['client_ip'] = request.remote_addr
                         response_data = {"msg": "Action History loaded successfully", "BearrToken": response_statuses}
-                        log_entry_event.log_api_call(request_data, response_data)
+                        log_entry_event.log_api_call(response_data)
 
                     return jsonify(response_statuses), 200
                 else:
@@ -388,17 +363,16 @@ def action_history():
                         data['mpwz_id'] = str(mpwz_id_actionhistory)
                         data['notify_from_id'] = username
                         data['action_by'] = username
-                        data['action_at'] = datetime.datetime.now().isoformat()
+                        data['response_at'] = datetime.datetime.now().isoformat()
 
                         response = mongo.db.mpwz_user_action_history.insert_one(data)
                         if response:
-                            data['_id'] = str(response.inserted_id)                    
-                            # Log entry in table        
-                            request_data = data
-                            request_data['current_api'] = request.full_path
-                            request_data['client_ip'] = request.remote_addr
+                            data['_id'] = str(response.inserted_id)  
+                            data['current_api'] = request.full_path
+                            data['client_ip'] = request.remote_addr
+                            data['response_at'] = datetime.datetime.now().isoformat()
                             response_data = {"msg": "Action History updated successfully", "BearrToken": username}
-                            log_entry_event.log_api_call(request_data, response_data)
+                            log_entry_event.log_api_call(response_data)
 
                             return jsonify({"msg": f"Action history updated successfully, mpwz_id: {mpwz_id_actionhistory}"}), 200
                         else:
@@ -453,15 +427,21 @@ def my_request_notification_count():
 
             if app_source not in response_data['app_notifications_count']:
                 response_data['app_notifications_count'][app_source] = {}
+                response_data['app_notifications_count'][app_source][notify_status] = doc['count']
+                response_data['total_pending_count'] += doc['count']
 
-            response_data['app_notifications_count'][app_source][notify_status] = doc['count']
-            response_data['total_pending_count'] += doc['count']
-
-        # Log the response data
-        request_data = {'username': username}
-        request_data['current_api'] = request.full_path
-        request_data['client_ip'] = request.remote_addr
-        log_entry_event.log_api_call(request_data, response_data)
+        # Log the response statuses
+        if notification_counts:
+            response_statuses = []
+            for status in notification_counts:
+                        status_response = {key: value for key, value in status.items() if key != '_id'}
+                        status_response['response_at'] = datetime.datetime.now().isoformat()      
+                        status_response['username']  = username
+                        status_response['current_api'] = request.full_path
+                        status_response['client_ip'] = request.remote_addr
+                        response_statuses.append(status_response)
+                        response_data = {"msg": "my request count loaded successfully", "BearrToken": response_statuses}
+                        log_entry_event.log_api_call(response_data)  
 
         return jsonify(response_data), 200
 
@@ -480,11 +460,6 @@ def my_request_notification_list():
         app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": application_type})
         if not app_exists:
             return jsonify({"msg": "application type does not exist."}), 400  
-
-        # response_data = {
-        #     'username': username,
-        #     'notifications': []
-        # }
         response_data=[]
         
         query = {
@@ -495,34 +470,31 @@ def my_request_notification_list():
         
         # Fetch data using query
         notifications = mongo.db.mpwz_notifylist.find(query)
-        unique_button_names = mongo.db.mpwz_buttons.distinct('button_name')
+        # unique_button_names = mongo.db.mpwz_buttons.distinct('button_name')
 
         for notification in notifications:
             notification_copy = notification.copy()  
             notification_copy.pop('_id', None) 
-            notification_copy['buttons'] = unique_button_names  
-            response_data.append(notification_copy) 
-            # response_data['notifications'].append(notification_copy) 
-
+            # notification_copy['buttons'] = unique_button_names  
+            response_data.append(notification_copy)
         # Log the response statuses
-        # if response_data['notifications']:
-        if response_data:
+        if notifications:
             response_statuses = []
-            # for notification in response_data['notifications']:
             for notification in response_data:
-                status_response1 = {key: value for key, value in notification.items()}  
-                status_response1['action_by'] = {'username': username}
-                status_response1['action_at'] = datetime.datetime.now().isoformat()
-                response_statuses.append(status_response1)
-
-                # Make logs entry in table  
-                request_data = {'username': username}
-                request_data['current_api'] = request.full_path
-                request_data['client_ip'] = request.remote_addr
-                log_entry_event.log_api_call(request_data, {"msg": "action pending info list loaded successfully", "BearrToken": response_statuses})       
+                    # Creating new dictionary to remove _id from response
+                    status_response = {key: value for key, value in notification.items() if key != '_id'}
+                    status_response['response_at'] = datetime.datetime.now().isoformat()      
+                    status_response['username']  = username
+                    status_response['current_api'] = request.full_path
+                    status_response['client_ip'] = request.remote_addr
+                    response_statuses.append(status_response)
+                    # Make log entry in table  
+                    response_data = {"msg": "my request list loaded successfully", "BearrToken": response_statuses}                     
+                    log_entry_event.log_api_call(response_data)
+                
+            return jsonify(response_statuses), 200             
         else:
             return jsonify({"msg": f"No pending notifications found for {username}."}), 400
-        return jsonify(response_data), 200
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
      
@@ -573,24 +545,21 @@ def pending_notification_count():
         if notification_counts:
             response_statuses = []
             for status in notification_counts:
-                status_response1 = {key: value for key, value in status.items() if key != '_id'}  
-                status_response1['action_by'] =  {'username': username}
-                status_response1['action_at'] = datetime.datetime.now().isoformat()
-                response_statuses.append(status_response1)
-                
-                # Make logs entry in table  
-                request_data =  {'username': username}
-                request_data['current_api'] = request.full_path
-                request_data['client_ip'] = request.remote_addr
-                response_data = {"msg": "action pending info count loaded successfully", "BearrToken": response_statuses}
-                log_entry_event.log_api_call(request_data, response_data)       
+                        status_response = {key: value for key, value in status.items() if key != '_id'}
+                        status_response['response_at'] = datetime.datetime.now().isoformat()      
+                        status_response['username']  = username
+                        status_response['current_api'] = request.full_path
+                        status_response['client_ip'] = request.remote_addr
+                        response_statuses.append(status_response)
+                        response_data = {"msg": "pending request count loaded successfully", "BearrToken": response_statuses}
+                        log_entry_event.log_api_call(response_data)       
         else:
-            return jsonify({"msg": "Failed to update pending request for action logs"}), 400     
+          return jsonify({"msg": f"No notifications found for the user {username}."}), 404      
 
         return jsonify(response_data), 200
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-    
+
 @app.route('/pending-notify-list', methods=['GET'])
 @jwt_required()
 def pending_notification_list():
@@ -604,11 +573,7 @@ def pending_notification_list():
         app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": application_type})
         if not app_exists:
             return jsonify({"msg": "application type does not exist."}), 400  
-
-        # response_data = {
-        #     'username': username,
-        #     'notifications': []
-        # }
+        
         response_data=[]
         
         query = {
@@ -626,30 +591,198 @@ def pending_notification_list():
             notification_copy.pop('_id', None) 
             notification_copy['buttons'] = unique_button_names  
             response_data.append(notification_copy) 
-            # response_data['notifications'].append(notification_copy) 
+            
 
         # Log the response statuses
-        # if response_data['notifications']:
         if response_data:
             response_statuses = []
-            # for notification in response_data['notifications']:
             for notification in response_data:
-                status_response1 = {key: value for key, value in notification.items()}  
-                status_response1['action_by'] = {'username': username}
-                status_response1['action_at'] = datetime.datetime.now().isoformat()
-                response_statuses.append(status_response1)
-
-                # Make logs entry in table  
-                request_data = {'username': username}
-                request_data['current_api'] = request.full_path
-                request_data['client_ip'] = request.remote_addr
-                log_entry_event.log_api_call(request_data, {"msg": "action pending info list loaded successfully", "BearrToken": response_statuses})       
+                    # Creating new dictionary to remove _id from response
+                    status_response = {key: value for key, value in notification.items() if key != '_id'}
+                    status_response['response_at'] = datetime.datetime.now().isoformat()      
+                    status_response['username']  = username
+                    status_response['current_api'] = request.full_path
+                    status_response['client_ip'] = request.remote_addr
+                    response_statuses.append(status_response)
+                    # Make log entry in table  
+                    response_data = {"msg": "pending request List loaded successfully", "BearrToken": response_statuses}                     
+                    log_entry_event.log_api_call(response_data)
+     
         else:
             return jsonify({"msg": "No pending notifications found."}), 400
-        return jsonify(response_data), 200
+        return jsonify(response_statuses), 200
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-     
+ 
+
+@app.route('/dashboard-total-notify-count', methods=['GET'])
+@jwt_required()
+def total_notification_count():
+    try:
+        username = get_jwt_identity()
+        response_data = {
+            'total_count': 0,
+            'app_count': {}
+        }
+        
+        # Match stage to find notifications either sent to or from the user
+        match_stage = {
+            '$or': [
+                {'notify_to_id': username},
+                {'notify_from_id': username}
+            ]
+        } 
+        
+        pipeline = [
+            {
+                '$match': match_stage
+            },
+            {
+                '$group': {
+                    '_id': {
+                        'app_source': '$app_source',
+                    },
+                    'count': {'$sum': 1}
+                }
+            }
+        ] 
+        
+        notification_counts = mongo.db.mpwz_notifylist.aggregate(pipeline)        
+        notification_counts_list = list(notification_counts)  # Convert cursor to list for multiple iterations
+
+        for doc in notification_counts_list:
+            app_source = doc['_id']['app_source']
+
+            # Initialize app_count for the app_source if it doesn't exist
+            if app_source not in response_data['app_count']:
+                response_data['app_count'][app_source] = 0
+
+            # Update the count for the specific app_source
+            response_data['app_count'][app_source] += doc['count']
+            response_data['total_count'] += doc['count']
+
+        # Log the response statuses
+        if response_data['total_count'] > 0:
+            response_statuses = []
+            for doc in notification_counts_list:  # Use the list created earlier
+                status_response = {key: value for key, value in doc.items() if key != '_id'}  
+                status_response['response_at'] = datetime.datetime.now().isoformat()
+                status_response['current_api'] = request.full_path
+                status_response['client_ip'] = request.remote_addr
+                response_statuses.append(status_response)
+
+            # Log entry in table 
+            log_entry_event.log_api_call({"msg": "History loaded successfully", "BearrToken": response_statuses})
+
+            # Return the response with total counts and app counts
+            return jsonify({
+                "total_count": response_data['total_count'],
+                "app_count": response_data['app_count']
+            }), 200
+        else:
+            return jsonify({"msg": f"No notifications found for the user {username}."}), 404  
+    except Exception as e:
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+    
+
+@app.route('/dashboard-statuswise-notify-count', methods=['GET'])
+@jwt_required()
+def statuswise_notification_count():
+    try:
+        username = get_jwt_identity()
+        response_data = {
+            'total_count': 0,
+            'status_count': {}
+        }
+        
+        # Match stage to find notifications either sent to or from the user
+        match_stage = {
+            '$or': [
+                {'notify_to_id': username},
+                {'notify_from_id': username}
+            ]
+        } 
+        
+        pipeline = [
+            {
+                '$match': match_stage
+            },
+            {
+                '$group': {
+                    '_id': {
+                        'notify_status': '$notify_status',
+                    },
+                    'count': {'$sum': 1}
+                }
+            }
+        ] 
+        
+        notification_counts = mongo.db.mpwz_notifylist.aggregate(pipeline)        
+        notification_counts_list = list(notification_counts)  # Convert cursor to list for multiple iterations
+
+        for doc in notification_counts_list:
+            notify_status = doc['_id']['notify_status']
+            # Initialize status_count for the notify_status if it doesn't exist
+            if notify_status not in response_data['status_count']:
+                response_data['status_count'][notify_status] = 0
+
+            # Update the count for the specific notify_status
+            response_data['status_count'][notify_status] += doc['count']
+            response_data['total_count'] += doc['count']
+
+        # Log the response statuses
+        if response_data['total_count'] > 0:
+            # Log entry in table 
+            log_entry_event.log_api_call({"msg": "Status wise count loaded successfully", "data": response_data})
+
+            # Return the response with total counts and status counts
+            return jsonify({
+                "total_count": response_data['total_count'],
+                "status_count": response_data['status_count']
+            }), 200
+        else:
+            return jsonify({"msg": f"No notifications found for the user {username}."}), 404  
+    except Exception as e:
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+    
+    
+@app.route('/dashboard-recent-actiondone-history', methods=['GET'])
+@jwt_required()
+def dashboard_action_history():
+    try:
+        username = get_jwt_identity()
+        if request.method == 'GET':
+                action_history_records = list(mongo.db.mpwz_user_action_history.find(
+                    {
+                    
+                                "$or": [
+                                    {"notify_to_id": username},
+                                    {"notify_from_id": username}
+                                ]
+                    },
+                    {"_id": 0}
+                ).sort("action_datetime", -1).limit(5))
+
+                if action_history_records:
+                    response_statuses = []
+                    for status in action_history_records:
+                        # Creating new dictionary to remove _id from response
+                        status_response = {key: value for key, value in status.items() if key != '_id'}
+                        status_response['response_at'] = datetime.datetime.now().isoformat()
+                        status_response['current_api'] = request.full_path
+                        status_response['client_ip'] = request.remote_addr
+                        response_statuses.append(status_response)
+                        # Log entry in table 
+                        response_data = {"msg": "History loaded successfully", "BearrToken": response_statuses}
+                        log_entry_event.log_api_call(response_data)
+
+                    return jsonify(response_statuses), 200
+                else:
+                    return jsonify({"msg": "No action history found."}), 404
+            
+    except Exception as e:
+        return jsonify({"msg": f"An error occurred while processing the request. Please try again later.{str(e)}"}), 500
+    
 @app.route('/update-notify-inhouse-app', methods=['POST'])
 @jwt_required()
 def update_notify_status_inhouse_app():
@@ -732,7 +865,7 @@ def update_notify_status_inhouse_app():
                 for status in result:
                     status_response1 = {key: value for key, value in status.items() if key != '_id'}
                     status_response1['action_by'] = username
-                    status_response1['action_at'] = datetime.datetime.now().isoformat()
+                    status_response1['response_at'] = datetime.datetime.now().isoformat()
                     response_statuses.append(status_response1)
 
                 # Make logs entry in table
@@ -750,7 +883,7 @@ def update_notify_status_inhouse_app():
         return jsonify({"msg": f"Something went wrong while processing request in primary stage {str(e)}"}), 500
      
 ## Extenal API for Get Data from Remote Servers ##
-@app.route('/shared-call/api/v1/ngb/post-notifyerp', methods=['POST'])
+@app.route('/shared-call/api/v1/ngb/post-notifyngb', methods=['POST'])
 @jwt_required()
 def create_notification_from_ngb():
     username = get_jwt_identity()
@@ -760,7 +893,9 @@ def create_notification_from_ngb():
     print(f"requesting data for {app_request_type} and request comming from {application_type}")   
 
     app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": application_type})
-    if not app_exists:
+    if application_type != 'ngb':
+         return jsonify({"msg": "incomming request occurred from invalid app_source."}), 400 
+    elif not app_exists:
         return jsonify({"msg": "requesting application is not integrated with our server."}), 400 
     else: 
 
@@ -822,7 +957,7 @@ def create_notification_from_ngb():
                     response_status = {
                         "mpwz_id": data["mpwz_id"],
                         "action_by": username,
-                        "action_at": datetime.datetime.now().isoformat()
+                        "response_at": datetime.datetime.now().isoformat()
                     }
                     request_data = username
                     response_data = {
@@ -848,10 +983,12 @@ def create_notification_from_erp():
     data = request.get_json()  
     application_type = request.args.get('app_source')    
     # app_request_type = request.args.get('app_request_type')     
-    # print(f"requesting data for {app_request_type} and request comming from {application_type}")   
+    # print(f"requesting data for {app_request_type} and request comming from {application_type}")     
 
     app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": application_type})
-    if not app_exists:
+    if application_type != 'erp':
+         return jsonify({"msg": "incomming request occurred from invalid app_source."}), 400 
+    elif not app_exists:
         return jsonify({"msg": "requesting application is not integrated with our server."}), 400 
     else: 
         # required_fields_map = {
@@ -896,7 +1033,7 @@ def create_notification_from_erp():
                     response_status = {
                         "mpwz_id": data["mpwz_id"],
                         "action_by": username,
-                        "action_at": datetime.datetime.now().isoformat()
+                        "response_at": datetime.datetime.now().isoformat()
                     }
                     request_data = username
                     response_data = {
