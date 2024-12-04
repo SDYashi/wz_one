@@ -1,4 +1,3 @@
-from pymongo import MongoClient 
 from myservices.myserv_mongodbconnect import myserv_mongodbconnect 
 
 class myserv_updatedbproperties:
@@ -15,18 +14,18 @@ class myserv_updatedbproperties:
         print(f'Modified {result.modified_count} documents.')
 
     
-    def change_all_fields_to_string(self, collection_name):
-        collection = self.dbconnect[collection_name]
-        cursor = collection.find()
-        for doc in cursor:
-            updates = {}
-            for field, value in doc.items():
-                updates[field] = str(value)
-            if updates:
-                collection.update_one({"_id": doc["_id"]}, {"$set": updates})
-                print(f"Updated document with _id: {doc['_id']}")    
+    # def change_all_fields_to_string(self, collection_name):
+    #     collection = self.dbconnect[collection_name]
+    #     cursor = collection.find()
+    #     for doc in cursor:
+    #         updates = {}
+    #         for field, value in doc.items():
+    #             updates[field] = str(value)
+    #         if updates:
+    #             collection.update_one({"_id": doc["_id"]}, {"$set": updates})
+    #             print(f"Updated document with _id: {doc['_id']}")    
 
 if __name__ == "__main__":
     db_updater = myserv_updatedbproperties()
-    # db_updater.change_field_type(collection_name='mpwz_users', field_name='employee_number')
-    db_updater.change_all_fields_to_string(collection_name='mpwz_users')
+    db_updater.change_field_type(collection_name='mpwz_users', field_name='employee_number')
+    # db_updater.change_all_fields_to_string(collection_name='mpwz_users')

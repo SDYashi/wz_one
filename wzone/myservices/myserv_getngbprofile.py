@@ -10,7 +10,6 @@ class myserv_getngbprofile:
             self.usersprofiles_collection = dbconnect['mpwz_ngb_usersprofiles']
             self.offices_collection = dbconnect['mpwz_offices']
             self.user_collection = dbconnect['mpwz_users']
-            print("MongoDB connection established.")
         except Exception as e:
             print(f"Unexpected error while setting up MongoDB: {e}")
             raise

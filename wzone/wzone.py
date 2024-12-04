@@ -2,7 +2,6 @@ import base64
 import secrets
 import datetime
 import json
-import hashlib
 import os
 from flask import Flask, request, jsonify
 from flask_pymongo import PyMongo
@@ -14,12 +13,14 @@ from shared_api.erp_postapi_services import erp_apiservices
 from shared_api.ngb_postapi_services import ngb_apiservices
 from myservices.myserv_getmpwz_id import myserv_getmpwz_id
 from myservices.myserv_updateuserlogs import myserv_updateuserlogs
+from myservices.myserv_mongodbconnect import myserv_mongodbconnect
 
 app = Flask(__name__)
-
 # intialize all class's for use app 
 seq_gen = myserv_getmpwz_id()
 log_entry_event = myserv_updateuserlogs()
+# mongo_db = myserv_mongodbconnect()  
+# mongo = mongo_db.get_connection() 
 
 # cross origin allow for applications
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -30,37 +31,10 @@ mongo = PyMongo(app)
 
 # jwt token configuration
 # app.config['JWT_SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['JWT_SECRET_KEY'] ='8ff09627ca698e84a587ccd3ae005f625ece33b3c999062e62dbf6e70c722323'  
 # app.config['JWT_SECRET_KEY'] = secrets.token_hex()  
+app.config['JWT_SECRET_KEY'] ='8ff09627ca698e84a587ccd3ae005f625ece33b3c999062e62dbf6e70c722323'  
 jwt = JWTManager(app)
-
-# this api is only for admin single time purpose where application pushed on server
-@app.route('/set_common_password', methods=['PUT'])
-def set_common_password():
-    # Set the common password
-    common_password = "123456"
-    hashed_password = bcrypt.hashpw(common_password.encode('utf-8'), bcrypt.gensalt())
-    result = mongo.db.mpwz_users.update_many(
-        {}, 
-        {"$set": {"password": hashed_password}}
-    )
-    if result.modified_count > 0:
-        return jsonify({"msg": f"Password set to '123456' for {result.modified_count} users."}), 200
-    else:
-        return jsonify({"msg": "No users found or password unchanged."}), 404
-    
-    # update columns values in mongo database collections
-    # common_status = ""
-    # Update the password for all users in the collection
-    # result1 = mongo.db.mpwz_users.update_many(
-    #     {}, 
-    #     {"$set": {"role_type": common_status}}
-    # )    
-    # if result1.modified_count > 0:
-    #     return jsonify({"msg": f"role_type set to {common_status} for {result1.modified_count} users."}), 200
-    # else:
-    #     return jsonify({"msg": "No Change  in role_type."}), 404
-
+   
 @app.route('/login', methods=['POST'])
 def login():
     try:
@@ -683,7 +657,6 @@ def update_notify_status_inhouse_app():
         username = get_jwt_identity()
         data = request.get_json()  
         remote_response = ""
-        # username = current_user['username']
         app_source = request.args.get('app_source')
         app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": app_source})
         if not app_exists:
@@ -736,7 +709,6 @@ def update_notify_status_inhouse_app():
                 return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
 
         elif app_source == 'erp':
-
             return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400
 
         else:
@@ -778,7 +750,7 @@ def update_notify_status_inhouse_app():
         return jsonify({"msg": f"Something went wrong while processing request in primary stage {str(e)}"}), 500
      
 ## Extenal API for Get Data from Remote Servers ##
-@app.route('/shared-call/api/ngb/post-notify-info', methods=['POST'])
+@app.route('/shared-call/api/v1/ngb/post-notifyerp', methods=['POST'])
 @jwt_required()
 def create_notification_from_ngb():
     username = get_jwt_identity()
@@ -869,7 +841,7 @@ def create_notification_from_ngb():
                 seq_gen.reset_sequence('mpwz_notifylist_erp')
                 return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
 
-@app.route('/shared-call/api/erp/post-notify-info', methods=['POST'])
+@app.route('/shared-call/api/v1/erp/post-notifyerp', methods=['POST'])
 @jwt_required()
 def create_notification_from_erp():
     username = get_jwt_identity()
@@ -944,5 +916,4 @@ def create_notification_from_erp():
                 return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
 
 if __name__ == '__main__':
-    # app.run(debug=False)
   app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
