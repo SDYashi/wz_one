@@ -1,8 +1,8 @@
-from myservices.myserv_mongodbconnect import myserv_mongodbconnect 
+from wzone.myservices.myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_updatedbproperties:
     def __init__(self): 
-            mongo_db = myserv_mongodbconnect()  
+            mongo_db = myserv_connection_mongodb()  
             dbconnect = mongo_db.get_connection() 
 
     def change_field_type(self, collection_name, field_name):

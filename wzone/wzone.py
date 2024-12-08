@@ -510,10 +510,11 @@ def pending_notification_count():
             'app_notifications_count': {}
         }
         match_stage = {
-            'notify_to_id': username
+            'notify_to_id': username,
+            'notify_status':notification_status
         }        
-        if notification_status:
-            match_stage['notify_status'] = notification_status
+        # if notification_status:
+        #     match_stage['notify_status'] = notification_status
 
         pipeline = [
             {
@@ -613,7 +614,6 @@ def pending_notification_list():
         return jsonify(response_statuses), 200
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
- 
 
 @app.route('/dashboard-total-notify-count', methods=['GET'])
 @jwt_required()
@@ -621,16 +621,11 @@ def total_notification_count():
     try:
         username = get_jwt_identity()
         response_data = {
-            'total_count': 0,
-            'app_count': {}
+            'app_notifications_count': {}
         }
         
-        # Match stage to find notifications either sent to or from the user
         match_stage = {
-            '$or': [
-                {'notify_to_id': username},
-                {'notify_from_id': username}
-            ]
+            'notify_to_id': username
         } 
         
         pipeline = [
@@ -641,6 +636,7 @@ def total_notification_count():
                 '$group': {
                     '_id': {
                         'app_source': '$app_source',
+                        'notify_status': '$notify_status'
                     },
                     'count': {'$sum': 1}
                 }
@@ -648,42 +644,36 @@ def total_notification_count():
         ] 
         
         notification_counts = mongo.db.mpwz_notifylist.aggregate(pipeline)        
-        notification_counts_list = list(notification_counts)  # Convert cursor to list for multiple iterations
-
-        for doc in notification_counts_list:
+        for doc in notification_counts:
             app_source = doc['_id']['app_source']
+            notify_status = doc['_id']['notify_status']
+            count = doc['count']
+            
+            # Initialize the app_source dictionary if it doesn't exist
+            if app_source not in response_data['app_notifications_count']:
+                response_data['app_notifications_count'][app_source] = {}
 
-            # Initialize app_count for the app_source if it doesn't exist
-            if app_source not in response_data['app_count']:
-                response_data['app_count'][app_source] = 0
-
-            # Update the count for the specific app_source
-            response_data['app_count'][app_source] += doc['count']
-            response_data['total_count'] += doc['count']
+            # Set the count for the specific notify_status
+            response_data['app_notifications_count'][app_source][notify_status] = count
 
         # Log the response statuses
-        if response_data['total_count'] > 0:
+        if notification_counts:
             response_statuses = []
-            for doc in notification_counts_list:  # Use the list created earlier
-                status_response = {key: value for key, value in doc.items() if key != '_id'}  
-                status_response['response_at'] = datetime.datetime.now().isoformat()
+            for status in notification_counts:
+                status_response = {key: value for key, value in status.items() if key != '_id'}
+                status_response['response_at'] = datetime.datetime.now().isoformat()      
+                status_response['username']  = username
                 status_response['current_api'] = request.full_path
                 status_response['client_ip'] = request.remote_addr
                 response_statuses.append(status_response)
-
-            # Log entry in table 
-            log_entry_event.log_api_call({"msg": "History loaded successfully", "BearrToken": response_statuses})
-
-            # Return the response with total counts and app counts
-            return jsonify({
-                "total_count": response_data['total_count'],
-                "app_count": response_data['app_count']
-            }), 200
+                response_data = {"msg": "pending request count loaded successfully", "BearrToken": response_statuses}
+                log_entry_event.log_api_call(response_data)       
         else:
-            return jsonify({"msg": f"No notifications found for the user {username}."}), 404  
+            return jsonify({"msg": f"No notifications found for the user {username}."}), 404      
+
+        return jsonify([response_data['app_notifications_count']]), 200
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-    
 
 @app.route('/dashboard-statuswise-notify-count', methods=['GET'])
 @jwt_required()
@@ -744,8 +734,7 @@ def statuswise_notification_count():
             return jsonify({"msg": f"No notifications found for the user {username}."}), 404  
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-    
-    
+     
 @app.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
 def dashboard_action_history():
@@ -782,20 +771,62 @@ def dashboard_action_history():
             
     except Exception as e:
         return jsonify({"msg": f"An error occurred while processing the request. Please try again later.{str(e)}"}), 500
-    
+
+@app.route('/statuswise-notify-list', methods=['GET'])
+@jwt_required()
+def statuswise_notification_list():
+    try:
+        username = get_jwt_identity()
+        notification_status = request.args.get('notification_status')  
+        response_data=[]        
+        query = {
+            'notify_to_id': username,
+            # 'notify_from_id': username,
+            'notify_status':notification_status
+        }        
+        # Fetch data using query
+        notifications = mongo.db.mpwz_notifylist.find(query)
+
+        for notification in notifications:
+            notification_copy = notification.copy()  
+            notification_copy.pop('_id', None) 
+            response_data.append(notification_copy) 
+            
+
+        # Log the response statuses
+        if response_data:
+            response_statuses = []
+            for notification in response_data:
+                    # Creating new dictionary to remove _id from response
+                    status_response = {key: value for key, value in notification.items() if key != '_id'}
+                    status_response['response_at'] = datetime.datetime.now().isoformat()      
+                    status_response['username']  = username
+                    status_response['current_api'] = request.full_path
+                    status_response['client_ip'] = request.remote_addr
+                    response_statuses.append(status_response)
+                    response_data = {"msg": "request List loaded successfully", "BearrToken": response_statuses}                     
+                    log_entry_event.log_api_call(response_data)     
+        else:
+            return jsonify({"msg": "No notifications found."}), 400
+        return jsonify(response_statuses), 200
+    except Exception as e:
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+
 @app.route('/update-notify-inhouse-app', methods=['POST'])
 @jwt_required()
 def update_notify_status_inhouse_app():
     try:
         username = get_jwt_identity()
-        data = request.get_json()  
-        remote_response = ""
+        data = request.get_json() 
+        remote_response = "ok cofirm"
+        ngb_user_details = "" 
         app_source = request.args.get('app_source')
         app_exists = mongo.db.mpwz_integrated_app.find_one({"app_name": app_source})
+
         if not app_exists:
             return jsonify({"msg": f"Requesting application is not integrated with our server:- {app_exists}"}), 400
        
-        required_fields = ["mpwz_id", "app_source", "app_source_appid", "notify_status", "notify_refsys_id", "notify_to_id", "notify_from_id","notify_type"]
+        required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover","notify_to_id"]
         for field in required_fields:
             if field not in data:
                 return jsonify({"msg": f"{field} is required"}), 400
@@ -803,55 +834,56 @@ def update_notify_status_inhouse_app():
         notify_to_id = data["notify_to_id"]
         if notify_to_id != username:
             return jsonify({"msg": "You are not authorized to update this notification status."}), 403
-
         if app_source == 'ngb':
+            print(f"Searching for record with mpwz_id: {data['mpwz_id']}, notify_to_id: {data['notify_to_id']}, notify_refsys_id: {data['notify_refsys_id']}")
             ngb_user_details = mongo.db.mpwz_notifylist.find_one({
-                "app_source": app_source,
-                "mpwz_id": data["mpwz_id"],
+                "mpwz_id": data['mpwz_id'],
+                "notify_to_id": data['notify_to_id'],
                 "notify_refsys_id": data['notify_refsys_id']
             })
+            print(ngb_user_details)
 
-            if ngb_user_details is None:
-                return jsonify({"msg": "Notification details not found in databaase"}), 404
+            # if ngb_user_details is None:
+            #     return jsonify({"msg": "Notification details not found in databaase"}), 404
 
-            if ngb_user_details.get("notify_type") == "CC4":
-                shared_api_data = {
-                    "id": ngb_user_details["notify_refsys_id"],
-                    "locationCode": ngb_user_details["locationCode"],
-                    "approver": ngb_user_details["approver"],
-                    "billId": ngb_user_details["billId"],
-                    "billCorrectionProfileInitiatorId": ngb_user_details["billCorrectionProfileInitiatorId"],
-                    "status": data["notify_status"],
-                    "remark": ngb_user_details["remark"],
-                    "updatedBy": ngb_user_details["updatedBy"],
-                    "updatedOn": ngb_user_details["updatedOn"]
-                }
-                remote_response = ngb_postapi_services.notify_ngb_toupdate_cc4status(shared_api_data)
+            # if ngb_user_details.get("notify_type") == "CC4":
+            #     shared_api_data = {
+            #         "id": ngb_user_details["notify_refsys_id"],
+            #         "locationCode": ngb_user_details["locationCode"],
+            #         "approver": ngb_user_details["approver"],
+            #         "billId": ngb_user_details["billId"],
+            #         "billCorrectionProfileInitiatorId": ngb_user_details["billCorrectionProfileInitiatorId"],
+            #         "status": data["notify_status"],
+            #         "remark": ngb_user_details["remark"],
+            #         "updatedBy": ngb_user_details["updatedBy"],
+            #         "updatedOn": ngb_user_details["updatedOn"]
+            #     }
+            #     remote_response = ngb_postapi_services.notify_ngb_toupdate_cc4status(shared_api_data)
 
-            elif ngb_user_details.get("notify_type") == "CCB":
-                shared_api_data = {
-                    "postingDate": ngb_user_details["postingDate"],
-                    "amount": ngb_user_details["amount"],
-                    "code": ngb_user_details["code"],
-                    "ccbRegisterNo": ngb_user_details["ccbRegisterNo"],
-                    "remark": ngb_user_details["remark"],
-                    "consumerNo": ngb_user_details["consumerNo"],
-                }
-                remote_response = ngb_postapi_services.notify_ngb_toupdate_ccbstatus(shared_api_data)
-            else:
-                return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
+            # elif ngb_user_details.get("notify_type") == "CCB":
+            #     shared_api_data = {
+            #         "postingDate": ngb_user_details["postingDate"],
+            #         "amount": ngb_user_details["amount"],
+            #         "code": ngb_user_details["code"],
+            #         "ccbRegisterNo": ngb_user_details["ccbRegisterNo"],
+            #         "remark": ngb_user_details["remark"],
+            #         "consumerNo": ngb_user_details["consumerNo"],
+            #     }
+            #     remote_response = ngb_postapi_services.notify_ngb_toupdate_ccbstatus(shared_api_data)
+            # else:
+            #     return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
 
-        elif app_source == 'erp':
-            return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400
+        # elif app_source == 'erp':
+        #     return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400
 
         else:
             return jsonify({"msg": f"Something went wrong while verifying remote servers: {app_source}"}), 200
-
-        if remote_response is not None and remote_response.status_code == 200:
-            # Prepare the update query
+        
+        if ngb_user_details:            
+        # if remote_response is not None and remote_response.status_code == 200:
             update_query = {
                 "notify_status": data["notify_status"],
-                "notify_refsys_response": remote_response,
+                "notify_refsys_response": ngb_user_details,
                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
             }
 
@@ -863,18 +895,16 @@ def update_notify_status_inhouse_app():
             if result.modified_count > 0:
                 response_statuses = []
                 for status in result:
-                    status_response1 = {key: value for key, value in status.items() if key != '_id'}
-                    status_response1['action_by'] = username
-                    status_response1['response_at'] = datetime.datetime.now().isoformat()
-                    response_statuses.append(status_response1)
+                        status_response = {key: value for key, value in status.items() if key != '_id'}
+                        status_response['response_at'] = datetime.datetime.now().isoformat()      
+                        status_response['username']  = username
+                        status_response['current_api'] = request.full_path
+                        status_response['client_ip'] = request.remote_addr
+                        response_statuses.append(status_response)
+                        response_data = {"msg": "Notification Status Updated Successfully ", "BearrToken": response_statuses}
+                        log_entry_event.log_api_call(response_data)
 
-                # Make logs entry in table
-                request_data = username
-                request_data['current_api'] = request.full_path
-                request_data['client_ip'] = request.remote_addr
-                response_data = {"msg": "Notification updated in in-house server successfully", "Bear Token": response_statuses}
-                log_entry_event.log_api_call(request_data, response_data)
-                return jsonify({"msg": f"Notification status updated successfully. {result.modified_count}"}), 200
+                return jsonify({"msg": f"Notification Status Updated Successfully {result.modified_count}"}), 200
             else:
                 return jsonify({"msg": f"Something went wrong while updating Notification in own servers: {app_source}"}), 400
         else:
@@ -954,20 +984,14 @@ def create_notification_from_ngb():
             try:
                 result = mongo.db.mpwz_notifylist.insert_one(data)
                 if result:
-                    response_status = {
-                        "mpwz_id": data["mpwz_id"],
-                        "action_by": username,
-                        "response_at": datetime.datetime.now().isoformat()
-                    }
-                    request_data = username
-                    response_data = {
-                        "status": "success", 
-                        "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
-                        "BearerToken": response_status
-                    }
-                    # Log adding logs i9nto db
-                    log_entry_event.log_api_call(request_data, response_data)
-                    return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
+                            response_status = { }
+                            response_status['_id'] = str(result.inserted_id) 
+                            response_status['current_api'] = request.full_path
+                            response_status['client_ip'] = request.remote_addr
+                            response_status['response_at'] = datetime.datetime.now().isoformat()
+                            response_data = {"msg":  f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}"}
+                            log_entry_event.log_api_call(response_data)
+                            return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
                 else:
                     seq_gen.reset_sequence('mpwz_notifylist_erp')
                     return jsonify({"msg": "Failed to insert data from remote server logs"}), 400 
@@ -1030,20 +1054,14 @@ def create_notification_from_erp():
             try:
                 result = mongo.db.mpwz_notifylist.insert_one(data)
                 if result:
-                    response_status = {
-                        "mpwz_id": data["mpwz_id"],
-                        "action_by": username,
-                        "response_at": datetime.datetime.now().isoformat()
-                    }
-                    request_data = username
-                    response_data = {
-                        "status": "success", 
-                        "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
-                        "BearerToken": response_status
-                    }
-                    # Log adding logs i9nto db
-                    log_entry_event.log_api_call(request_data, response_data)
-                    return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
+                            response_status = { }
+                            response_status['_id'] = str(result.inserted_id) 
+                            response_status['current_api'] = request.full_path
+                            response_status['client_ip'] = request.remote_addr
+                            response_status['response_at'] = datetime.datetime.now().isoformat()
+                            response_data = {"msg":  f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}"}
+                            log_entry_event.log_api_call(response_data)
+                            return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
                 else:
                     seq_gen.reset_sequence('mpwz_notifylist')
                     return jsonify({"msg": "Failed to insert data from remote server logs"}), 400 

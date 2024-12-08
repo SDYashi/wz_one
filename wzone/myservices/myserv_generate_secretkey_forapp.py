@@ -1,6 +1,6 @@
 import secrets
 
-class SecretKeyGenerator:
+class myserv_generate_secretkey_forapp:
     def __init__(self, length=32):
         self.length = length
 
@@ -8,6 +8,6 @@ class SecretKeyGenerator:
         return secrets.token_hex(self.length)
     
 if __name__ == "__main__":
-    generator = SecretKeyGenerator(length=32)
+    generator = myserv_generate_secretkey_forapp(length=32)
     secret_key = generator.generate_secret_key()
     print("Generated Secret Key for applications:", secret_key)

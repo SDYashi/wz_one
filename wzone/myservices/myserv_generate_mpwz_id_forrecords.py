@@ -1,9 +1,9 @@
 from pymongo.errors import PyMongoError 
-from myservices.myserv_mongodbconnect import myserv_mongodbconnect 
+from wzone.myservices.myserv_connection_mongodb import myserv_connection_mongodb 
 
-class myserv_getmpwz_id:
+class myserv_generate_mpwz_id_forrecords:
     def __init__(self):      
-        mongo_db = myserv_mongodbconnect()  
+        mongo_db = myserv_connection_mongodb()  
         dbconnect = mongo_db.get_connection()        
         self.sequence_collection = dbconnect['mpwz_sequences']
         self.collections_id_collection = dbconnect['mpwz_collections_id']
