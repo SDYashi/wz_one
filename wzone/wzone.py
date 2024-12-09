@@ -8,22 +8,20 @@ from flask_pymongo import PyMongo
 from flask_jwt_extended import JWTManager,create_access_token, decode_token, jwt_required, get_jwt_identity,get_jwt
 from flask_cors import CORS
 import bcrypt
-from shared_api import ngb_postapi_services
 from shared_api.erp_postapi_services import erp_apiservices
 from shared_api.ngb_postapi_services import ngb_apiservices
-from myservices.myserv_getmpwz_id import myserv_getmpwz_id
-from myservices.myserv_updateuserlogs import myserv_updateuserlogs
-from myservices.myserv_mongodbconnect import myserv_mongodbconnect
+from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices.myserv_update_users_logs import myserv_update_users_logs
+from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
+#register app with flask
 app = Flask(__name__)
-# intialize all class's for use app 
-seq_gen = myserv_getmpwz_id()
-log_entry_event = myserv_updateuserlogs()
-# mongo_db = myserv_mongodbconnect()  
-# mongo = mongo_db.get_connection() 
-
 # cross origin allow for applications
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# intialize all class's for use app 
+seq_gen = myserv_generate_mpwz_id_forrecords()
+log_entry_event = myserv_update_users_logs()
 
 # mongo database's configuration informations
 app.config["MONGO_URI"] = "mongodb://localhost:27017/admin"

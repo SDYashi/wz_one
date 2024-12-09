@@ -1,5 +1,5 @@
 from pymongo.errors import PyMongoError 
-from wzone.myservices.myserv_connection_mongodb import myserv_connection_mongodb 
+from myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_generate_mpwz_id_forrecords:
     def __init__(self):      

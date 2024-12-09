@@ -2,7 +2,7 @@ import datetime
 import json
 from urllib import request
 from wzone.myservices.myserv_connection_mongodb import myserv_connection_mongodb
-class myserv_updateuserlogs:
+class myserv_update_users_logs:
     def __init__(self):  
         mongo_db = myserv_connection_mongodb()  
         dbconnect = mongo_db.get_connection() 
