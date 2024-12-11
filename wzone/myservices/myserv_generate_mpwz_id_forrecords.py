@@ -1,3 +1,6 @@
+import random
+import string
+from datetime import datetime
 from pymongo.errors import PyMongoError 
 from myservices.myserv_connection_mongodb import myserv_connection_mongodb 
 # from myserv_connection_mongodb import myserv_connection_mongodb 
@@ -69,3 +72,13 @@ class myserv_generate_mpwz_id_forrecords:
             print(f"Sequence for {collection_name} reset successfully.")
         except PyMongoError as e:
             print(f"Error resetting sequence for {collection_name}: {e}")
+
+    def generate_random_string(self):
+        characters = string.ascii_letters + string.digits 
+        random_string = ''.join(random.choices(characters, k=self.length))
+        return random_string
+
+    def generate_secretcode(self):
+        random_string = self.generate_random_string()
+        current_date = int(datetime.datetime.now().isoformat())
+        return f"{random_string}{current_date}"
