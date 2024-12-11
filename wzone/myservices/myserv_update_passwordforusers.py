@@ -1,15 +1,16 @@
 from flask import jsonify
 import bcrypt
-from wzone.myservices.myserv_connection_mongodb import myserv_connection_mongodb 
+from myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_resetpassword:
     def __init__(self):     
         mongo_db = myserv_connection_mongodb()  
         dbconnect = mongo_db.get_connection()        
-        self.sequence_collection = dbconnect['mpwz_users']
+        self.sequence_collection = dbconnect['mpwz_integration_users']
 
     def changepasswordfor_all(self, common_password):
         hashed_password = bcrypt.hashpw(common_password.encode('utf-8'), bcrypt.gensalt()) 
+        # Update the password for all users
         result = self.sequence_collection.update_many(
             {}, 
             {"$set": {"password": hashed_password}}
@@ -35,7 +36,7 @@ if __name__ == "__main__":
     password_manager = myserv_resetpassword()
     username = "34480244"  
     password = "123456"  
-    response, status_code = password_manager.changepasswordfor_all(password)
-    print(f"response{response} and {status_code}")
+    # response, status_code = password_manager.changepasswordfor_all(password)
+    # print(f"response{response} and {status_code}")
     response, status_code = password_manager.changepasswordfor_user(username,password)
     print(f"response{response} and {status_code}")

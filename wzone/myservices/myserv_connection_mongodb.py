@@ -2,9 +2,9 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 class myserv_connection_mongodb:
-    def __init__(self):
+    def __init__(self,db_name):
         self.uri = "mongodb://localhost:27017/"
-        self.db_name = "admin"
+        self.db_name = db_name
         self.client = None
         self.db = None
 

@@ -5,7 +5,7 @@ class myserv_get_empno_from_ngbusername:
     
     def __init__(self):
         try:    
-            mongo_db = myserv_connection_mongodb()  
+            mongo_db = myserv_connection_mongodb('admin')   
             dbconnect = mongo_db.get_connection() 
             self.usersprofiles_collection = dbconnect['mpwz_ngb_usersprofiles']
             self.offices_collection = dbconnect['mpwz_offices']
@@ -61,9 +61,9 @@ class myserv_get_empno_from_ngbusername:
 
 if __name__ == "__main__":
     user_profile_manager = myserv_get_empno_from_ngbusername() 
-    # employee_no = user_profile_manager.get_user_info('ae_kwz')
+    employee_no = user_profile_manager.get_user_info('ae_kwz')
     # employee_no = user_profile_manager.get_user_info('ee_khandwa_city')
-    employee_no = user_profile_manager.get_user_info('se_khandwa')
+    # employee_no = user_profile_manager.get_user_info('se_khandwa')
     if employee_no is not None:
         print("employee_number", employee_no)
     else:

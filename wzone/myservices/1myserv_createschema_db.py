@@ -1,15 +1,16 @@
 from pymongo import MongoClient
+from myserv_connection_mongodb import myserv_connection_mongodb
+# from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
 class myserv_createschema_db:
     def __init__(self):
-        self.client = MongoClient('mongodb://localhost:27017/')
+        self.client = myserv_connection_mongodb('admin')
 
     def add_database(self, db_name):      
         if db_name in self.client.list_database_names():
             print(f"Database with Name '{db_name}' already exists.")
             return False
         else:
-            # Create a new database
             self.client[db_name]
             print(f"Database with Name'{db_name}' created.")
             return True
@@ -24,8 +25,7 @@ class myserv_createschema_db:
                 db[collection_name]
                 print(f"Collection '{collection_name}' created in database '{db_name}'.")    
 
-    def list_databases(self):
-        """List all databases."""
+    def list_databases(self,d):
         databases = self.client.list_database_names()
         print("Databases:")
         for db in databases:

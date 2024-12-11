@@ -1,9 +1,10 @@
 from pymongo.errors import PyMongoError 
-from myserv_connection_mongodb import myserv_connection_mongodb 
+from myservices.myserv_connection_mongodb import myserv_connection_mongodb 
+# from myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_generate_mpwz_id_forrecords:
     def __init__(self):      
-        mongo_db = myserv_connection_mongodb()  
+        mongo_db = myserv_connection_mongodb('admin')  
         dbconnect = mongo_db.get_connection()        
         self.sequence_collection = dbconnect['mpwz_sequences']
         self.collections_id_collection = dbconnect['mpwz_collections_id']
@@ -17,7 +18,8 @@ class myserv_generate_mpwz_id_forrecords:
             "mpwz_user_action_history",
             "mpwz_users",
             "mpwz_users_credentials",
-            "mpwz_users_logs"
+            "mpwz_users_logs",
+            "mpwz_integration_users"
         ]
         
         # Initialize sequence for each collection
