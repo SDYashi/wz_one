@@ -12,7 +12,7 @@ class myserv_update_users_logs:
     def log_api_call(self, response_data):
         self.collection.insert_one(response_data)
         self.api_call_history.append(response_data)
-        print("qpi calling:-",response_data)
+        print("\n","qpi calling:-",response_data,"\n")
 
     def get_current_datetime(self):
         now =  datetime.datetime.now().isoformat()

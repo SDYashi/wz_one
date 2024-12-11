@@ -18,7 +18,7 @@ class myserv_update_users_api_logs:
             'success': success,
             'timestamp': datetime.datetime.now().isoformat()
         }
-        print("qpi response status :-",api_call_record)
+        print("\n","qpi response status :-",api_call_record,"\n")
         result = self.collection.insert_one(api_call_record)
         if result:
               self.history.append(api_call_record)
