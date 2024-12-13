@@ -6,11 +6,12 @@ from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 # from myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_generate_mpwz_id_forrecords:
+
     def __init__(self):      
-        mongo_db = myserv_connection_mongodb('admin')  
-        dbconnect = mongo_db.get_connection()        
-        self.sequence_collection = dbconnect['mpwz_sequences']
-        self.collections_id_collection = dbconnect['mpwz_collections_id']
+        self.mongo_db = myserv_connection_mongodb()  
+        self.dbconnect = self.mongo_db.get_connection()        
+        self.sequence_collection = self.dbconnect['mpwz_sequences']
+        self.collections_id_collection = self.dbconnect['mpwz_collections_id']
         
         # List of collections for which sequences will be initialized
         self.collections = [
@@ -73,12 +74,16 @@ class myserv_generate_mpwz_id_forrecords:
         except PyMongoError as e:
             print(f"Error resetting sequence for {collection_name}: {e}")
 
-    def generate_random_string(self):
-        characters = string.ascii_letters + string.digits 
-        random_string = ''.join(random.choices(characters, k=self.length))
-        return random_string
+    # def generate_random_string(self):
+    #     characters = string.ascii_letters + string.digits 
+    #     random_string = ''.join(random.choices(characters, k=self.length))
+    #     return random_string
 
-    def generate_secretcode(self):
-        random_string = self.generate_random_string()
-        current_date = int(datetime.datetime.now().isoformat())
-        return f"{random_string}{current_date}"
+    # def generate_secretcode(self):
+    #     random_string = self.generate_random_string()
+    #     current_date = int(datetime.datetime.now().isoformat())
+    #     return f"{random_string}{current_date}"
+
+    def mongo_dbconnect_close(self):
+        status = self.mongo_db.close_connection()
+        return status

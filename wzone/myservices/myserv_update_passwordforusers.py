@@ -4,9 +4,9 @@ from myserv_connection_mongodb import myserv_connection_mongodb
 
 class myserv_resetpassword:
     def __init__(self):     
-        mongo_db = myserv_connection_mongodb()  
-        dbconnect = mongo_db.get_connection()        
-        self.sequence_collection = dbconnect['mpwz_integration_users']
+        self.mongo_db = myserv_connection_mongodb()  
+        self.dbconnect = self.mongo_db.get_connection()        
+        self.sequence_collection = self.dbconnect['mpwz_integration_users']
 
     def changepasswordfor_all(self, common_password):
         hashed_password = bcrypt.hashpw(common_password.encode('utf-8'), bcrypt.gensalt()) 
@@ -31,6 +31,10 @@ class myserv_resetpassword:
             return {"msg": f"Password changed successfully for {user}"}, 200
         else:
             return {"msg": "user not found or password unchanged."}, 404
+        
+    def mongo_dbconnect_close(self):
+        status = self.mongo_db.close_connection()
+        return status
           
 if __name__ == "__main__":
     password_manager = myserv_resetpassword()

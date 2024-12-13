@@ -5,11 +5,11 @@ class myserv_get_empno_from_ngbusername:
     
     def __init__(self):
         try:    
-            mongo_db = myserv_connection_mongodb('admin')   
-            dbconnect = mongo_db.get_connection() 
-            self.usersprofiles_collection = dbconnect['mpwz_ngb_usersprofiles']
-            self.offices_collection = dbconnect['mpwz_offices']
-            self.user_collection = dbconnect['mpwz_users']
+            self.mongo_db = myserv_connection_mongodb('admin')   
+            self.dbconnect = self.mongo_db.get_connection() 
+            self.usersprofiles_collection = self.dbconnect['mpwz_ngb_usersprofiles']
+            self.offices_collection = self.dbconnect['mpwz_offices']
+            self.user_collection = self.dbconnect['mpwz_users']
         except Exception as e:
             print(f"Unexpected error while setting up MongoDB: {e}")
             raise
@@ -58,6 +58,11 @@ class myserv_get_empno_from_ngbusername:
         # Fetch employee details
         employee_details = list(self.user_collection.find(query))
         return employee_details
+       
+    def mongo_dbconnect_close(self):
+        status = self.mongo_db.close_connection()
+        return status
+
 
 if __name__ == "__main__":
     user_profile_manager = myserv_get_empno_from_ngbusername() 

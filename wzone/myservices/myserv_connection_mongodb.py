@@ -2,9 +2,9 @@ from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
 class myserv_connection_mongodb:
-    def __init__(self,db_name):
+    def __init__(self):
         self.uri = "mongodb://localhost:27017/"
-        self.db_name = db_name
+        self.db_name = "admin"
         self.client = None
         self.db = None
 
@@ -24,3 +24,4 @@ class myserv_connection_mongodb:
             self.client = None
             self.db = None
             print("MongoDB connection closed.")
+            

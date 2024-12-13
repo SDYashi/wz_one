@@ -43,8 +43,8 @@ class EmailSender:
             print("Disconnected from the SMTP server.")
 
 
-if __name__ == "__main__":
-    email_sender = EmailSender()
-    email_sender.sendemail_connect()
-    email_sender.send_email("Testing Subject for send email", "This is a test body.", "deepakmarskole88@gmail.com")
-    email_sender.sendemail_disconnect()
+# if __name__ == "__main__":
+#     email_sender = EmailSender()
+#     email_sender.sendemail_connect()
+#     email_sender.send_email("Testing Subject for send email", "This is a test body.", "deepakmarskole88@gmail.com")
+#     email_sender.sendemail_disconnect()

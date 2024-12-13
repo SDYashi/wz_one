@@ -7,8 +7,8 @@ from myserv_connection_mongodb import myserv_connection_mongodb
 class myserv_update_mpwzintegrationusers_frommpwzusers:
 
     def __init__(self):     
-        mongo_db = myserv_connection_mongodb('admin')  
-        self.dbconnect = mongo_db.get_connection() 
+        self.mongo_db = myserv_connection_mongodb('admin')  
+        self.dbconnect = self.mongo_db.get_connection() 
         self.users_collection = self.db['mpwz_users']
         self.integration_collection = self.db['mpwz_integration_users']        
         self.seq_gen = myserv_generate_mpwz_id_forrecords()
@@ -58,7 +58,12 @@ class myserv_update_mpwzintegrationusers_frommpwzusers:
         else:
             return {"message": "No new user found for id creation."}
 
+    def mongo_dbconnect_close(self):
+        status = self.mongo_db.close_connection()
+        return status
+    
 # Example usage
 if __name__ == "__main__":
     user_manager = myserv_update_mpwzintegrationusers_frommpwzusers()
     response = user_manager.process_users()
+    user_manager.mongo_dbconnect_close()
