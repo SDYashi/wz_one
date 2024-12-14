@@ -15,15 +15,19 @@ class myserv_generate_mpwz_id_forrecords:
         
         # List of collections for which sequences will be initialized
         self.collections = [
+            "mpwz_buttons",
             'mpwz_collections_id',
             'mpwz_integrated_app',
-            'mpwz_notify_status',
+            'mpwz_integration_users',
+            "mpwz_ngb_usersprofiles",
+            "mpwz_notify_status",
             "mpwz_notifylist",
+            "mpwz_offices",
+            "mpwz_sequences",
             "mpwz_user_action_history",
             "mpwz_users",
-            "mpwz_users_credentials",
+            "mpwz_users_api_logs",
             "mpwz_users_logs",
-            "mpwz_integration_users"
         ]
         
         # Initialize sequence for each collection

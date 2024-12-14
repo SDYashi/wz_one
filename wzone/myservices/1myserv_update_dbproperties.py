@@ -1,9 +1,10 @@
-from wzone.myservices.myserv_connection_mongodb import myserv_connection_mongodb 
+from sqlite3 import Binary
+from myservices.myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_updatedbproperties:
     def __init__(self): 
-            mongo_db = myserv_connection_mongodb()  
-            dbconnect = mongo_db.get_connection() 
+            self.mongo_db = myserv_connection_mongodb()  
+            self.dbconnect = self.mongo_db.get_connection() 
 
     def change_field_type(self, collection_name, field_name):
         collection = self.dbconnect[collection_name]
@@ -12,7 +13,15 @@ class myserv_updatedbproperties:
             [{"$set": {field_name: {"$toString": f"${field_name}"}}}]  
         )
         print(f'Modified {result.modified_count} documents.')
-
+        
+    def change_field_type_to_binary(self, collection_name, field_name):
+        collection = self.dbconnect[collection_name]
+        result = collection.update_many(
+            {field_name: {"$type": "string"}},  # Find documents where the field is a string
+            [{"$set": {field_name: Binary(f"${field_name}".encode('utf-8'))}}]  # Convert to Binary
+        )
+        
+        print(f'Modified {result.modified_count} documents.')
     
     # def change_all_fields_to_string(self, collection_name):
     #     collection = self.dbconnect[collection_name]
@@ -27,5 +36,6 @@ class myserv_updatedbproperties:
 
 if __name__ == "__main__":
     db_updater = myserv_updatedbproperties()
-    db_updater.change_field_type(collection_name='mpwz_users', field_name='employee_number')
+    # db_updater.change_field_type(collection_name='mpwz_integration_users', field_name='employee_number')
+    db_updater.change_field_type_to_binary('mpwz_integration_users', 'password')
     # db_updater.change_all_fields_to_string(collection_name='mpwz_users')

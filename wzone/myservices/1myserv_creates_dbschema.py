@@ -46,11 +46,25 @@ class myserv_createschema_db:
 
 if __name__ == "__main__":
     mongo_handler = myserv_createschema_db()
-    database_name = 'my_wzonedb'
-    collections_to_create = ['collection1', 'collection2', 'collection3']
-
-    if mongo_handler.add_database(database_name):
-        mongo_handler.add_collections(database_name, collections_to_create)
+    # database_name = 'my_wzonedb'
+    collections_to_create = [
+            "mpwz_buttons",
+            'mpwz_collections_id',
+            'mpwz_integrated_app',
+            'mpwz_integration_users',
+            "mpwz_ngb_usersprofiles",
+            "mpwz_notify_status",
+            "mpwz_notifylist",
+            "mpwz_offices",
+            "mpwz_sequences",
+            "mpwz_user_action_history",
+            "mpwz_users",
+            "mpwz_users_api_logs",
+            "mpwz_users_logs",
+        ]
+    mongo_handler.add_collections('admin', collections_to_create)
+    # if mongo_handler.add_database(database_name):
+    #     mongo_handler.add_collections(database_name, collections_to_create)
 
     # List all databases and its collections
     databaselist = mongo_handler.list_databases()

@@ -38,8 +38,6 @@ def after_request(response):
         if log_entry: 
             print(f"Request executed {api_name} it took {response_time_minutes:.4f} minutes.")
             return response
-        else:
-            return response
 
     except Exception as e:
         print(f"An error occurred: {e}")
@@ -66,9 +64,14 @@ def login():
         if user:
             stored_hashed_password = user['password']
             user_role = user['user_role']
-            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):                
+            
+            # Ensure the stored_hashed_password is in bytes
+            if isinstance(stored_hashed_password, str):
+                stored_hashed_password = stored_hashed_password.encode('utf-8')
+            
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
+                   
                 current_datetime = datetime.datetime.now()
-
                 if user_role=='api_user' :                
                     token_fromdb = user['token_app'] 
                     token_expiredon_fromdb = user['token_expiredon']                       
