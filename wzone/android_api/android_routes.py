@@ -11,7 +11,6 @@ from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_i
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_forblueprints import MongoCollection
-from myservices import myserv_connection_mongodb
 from . import android_api
 
 @android_api.before_request
