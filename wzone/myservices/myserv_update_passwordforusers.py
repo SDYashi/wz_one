@@ -36,11 +36,3 @@ class myserv_resetpassword:
         status = self.mongo_db.close_connection()
         return status
           
-if __name__ == "__main__":
-    password_manager = myserv_resetpassword()
-    username = "34480244"  
-    password = "123456"  
-    # response, status_code = password_manager.changepasswordfor_all(password)
-    # print(f"response{response} and {status_code}")
-    response, status_code = password_manager.changepasswordfor_user(username,password)
-    print(f"response{response} and {status_code}")

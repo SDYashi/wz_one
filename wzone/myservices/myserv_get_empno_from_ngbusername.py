@@ -5,7 +5,7 @@ class myserv_get_empno_from_ngbusername:
     
     def __init__(self):
         try:    
-            self.mongo_db = myserv_connection_mongodb('admin')   
+            self.mongo_db = myserv_connection_mongodb()   
             self.dbconnect = self.mongo_db.get_connection() 
             self.usersprofiles_collection = self.dbconnect['mpwz_ngb_usersprofiles']
             self.offices_collection = self.dbconnect['mpwz_offices']

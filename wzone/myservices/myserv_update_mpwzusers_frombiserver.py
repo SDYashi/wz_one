@@ -115,9 +115,3 @@ mongo_config = {
     'collection': 'mpwz_users'
 }
 
-if __name__ == "__main__":
-    db_sync = myserv_update_mpwzusers_frombiserver(pg_config, mongo_config)
-    try:
-        db_sync.sync_databases()
-    finally:
-        db_sync.close_connections()

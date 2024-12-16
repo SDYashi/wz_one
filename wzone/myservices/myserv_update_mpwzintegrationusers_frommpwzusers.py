@@ -62,8 +62,3 @@ class myserv_update_mpwzintegrationusers_frommpwzusers:
         status = self.mongo_db.close_connection()
         return status
     
-# Example usage
-if __name__ == "__main__":
-    user_manager = myserv_update_mpwzintegrationusers_frommpwzusers()
-    response = user_manager.process_users()
-    user_manager.mongo_dbconnect_close()

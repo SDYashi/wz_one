@@ -4,9 +4,7 @@ from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 class MongoCollection:
     def __init__(self, collection_name): 
         self.mongo_db = myserv_connection_mongodb()  
-        self.dbconnect = self.mongo_db.get_connection()     
-        # self.client = MongoClient("mongodb://localhost:27017/", maxPoolSize=50, minPoolSize=10)
-        # self.db = self.client['admin']
+        self.dbconnect = self.mongo_db.get_connection() 
         self.collection = self.dbconnect[collection_name]
 
     def insert_one(self, data):

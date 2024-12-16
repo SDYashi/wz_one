@@ -39,21 +39,21 @@ class myserv_createschema_db:
         return {"collections": collections}, 200
     
 
-{
-  "db_name": "my_wzonedb",
-  "collections": [
-            "mpwz_buttons",
-            'mpwz_collections_id',
-            'mpwz_integrated_app',
-            'mpwz_integration_users',
-            "mpwz_ngb_usersprofiles",
-            "mpwz_notify_status",
-            "mpwz_notifylist",
-            "mpwz_offices",
-            "mpwz_sequences",
-            "mpwz_user_action_history",
-            "mpwz_users",
-            "mpwz_users_api_logs",
-            "mpwz_users_logs",
-  ]
-}
+# {
+#   "db_name": "my_wzonedb",
+#   "collections": [
+#             "mpwz_buttons",
+#             'mpwz_collections_id',
+#             'mpwz_integrated_app',
+#             'mpwz_integration_users',
+#             "mpwz_ngb_usersprofiles",
+#             "mpwz_notify_status",
+#             "mpwz_notifylist",
+#             "mpwz_offices",
+#             "mpwz_sequences",
+#             "mpwz_user_action_history",
+#             "mpwz_users",
+#             "mpwz_users_api_logs",
+#             "mpwz_users_logs",
+#   ]
+# }

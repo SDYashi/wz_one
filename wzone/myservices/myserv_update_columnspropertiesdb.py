@@ -1,6 +1,5 @@
 from sqlite3 import Binary
 from myservices.myserv_connection_mongodb import myserv_connection_mongodb 
-# from myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_updatedbproperties:
     def __init__(self): 
@@ -39,7 +38,3 @@ class myserv_updatedbproperties:
                 collection.update_one({"_id": doc["_id"]}, {"$set": updates})
                 print(f"Updated document with _id: {doc['_id']}")    
 
-# if __name__ == "__main__":
-#     db_updater = myserv_updatedbproperties()
-#     db_updater.change_field_type(collection_name='mpwz_integration_users', field_name='employee_number')
-#     # db_updater.change_all_fields_to_string(collection_name='mpwz_users')

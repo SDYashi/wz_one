@@ -1,27 +1,35 @@
 import json
 
 class myserv_jsonresponse_merger:
-    def _init_(self):
-        self.flat_json = {}
+    def __init__(self, json_data):
+        self._json_data = json_data
+        self._flat_json = {}
 
-    def flatten(self, json_data, parent_key=''):
+    def flatten(self, json_data: dict, parent_key: str = '') -> None:
         if json_data is None:
-           self.json_data = json_data
+            raise ValueError("json_data cannot be None")
 
-        if isinstance(json_data, dict):
-            for key, value in json_data.items():
-                new_key = f"{parent_key}.{key}" if parent_key else key
+        if not isinstance(json_data, dict):
+            raise TypeError("json_data must be a dictionary")
+
+        for key, value in json_data.items():
+            new_key = f"{parent_key}.{key}" if parent_key else key
+            if isinstance(value, dict):
                 self.flatten(value, new_key)
-        elif isinstance(json_data, list):
-            for index, item in enumerate(json_data):
-                new_key = f"{parent_key}.{index}"
-                self.flatten(item, new_key)
-        else:
-            self.flat_json[parent_key] = json_data
+            elif isinstance(value, list):
+                for index, item in enumerate(value):
+                    new_key = f"{new_key}.{index}"
+                    if isinstance(item, dict):
+                        self.flatten(item, new_key)
+                    else:
+                        self._flat_json[new_key] = item
+            else:
+                self._flat_json[new_key] = value
 
-    def get_flat_json(self):
-        self.flatten()
-        return self.flat_json
+    def get_flat_json(self) -> dict:
+        self.flatten(self._json_data)
+        return self._flat_json
+
 
 
 if __name__ == "__main__":
