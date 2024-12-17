@@ -1,20 +1,28 @@
 import os
 import secrets
 import subprocess
+from flask import Flask, jsonify
 
-def generate_secret_key():
-    return secrets.token_hex(32) 
+app = Flask(__name__)
 
-def set_permanent_env_var_windows(var_name, var_value):
-    command = f'setx {var_name} "{var_value}"'
-    subprocess.run(command, shell=True, check=True)
-    print(f"Permanent environment variable '{var_name}' set to '{var_value}'.")
+class SecretKeyManager:
+    @staticmethod
+    def generate_secret_key():
+        """Generate a new secret key."""
+        return secrets.token_hex(32)
 
-def update_secretekey_forapp():
-    # Generate a secret key
-    secret_key = generate_secret_key()    
-    # Set the secret key as a permanent environment variable
-    set_permanent_env_var_windows('MY_SECRET_KEY', secret_key)
+    @staticmethod
+    def set_permanent_env_var_windows(var_name, var_value):
+        """Set a permanent environment variable on Windows."""
+        command = f'setx {var_name} "{var_value}"'
+        subprocess.run(command, shell=True, check=True)
+        print(f"Permanent environment variable '{var_name}' set to '{var_value}'.")
 
-if __name__ == "__main__":
-    update_secretekey_forapp()
+    @classmethod
+    def update_secret_key(cls):
+        """Generate a new secret key and set it as a permanent environment variable."""
+        secret_key = cls.generate_secret_key()
+        cls.set_permanent_env_var_windows('JWT_SECRET_KEY', secret_key)
+        return secret_key
+
+

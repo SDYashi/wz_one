@@ -38,7 +38,7 @@ class myserv_get_empno_from_ngbusername:
                 else:
                     return None
                             
-                if user_info:  # user_info is a list
+                if user_info:  
                     user_info_dict = user_info[0] if len(user_info) > 0 else None
                     if user_info_dict:
                         employee_no = user_info_dict.get('employee_number')
@@ -64,12 +64,12 @@ class myserv_get_empno_from_ngbusername:
         return status
 
 
-if __name__ == "__main__":
-    user_profile_manager = myserv_get_empno_from_ngbusername() 
-    employee_no = user_profile_manager.get_user_info('ae_kwz')
-    # employee_no = user_profile_manager.get_user_info('ee_khandwa_city')
-    # employee_no = user_profile_manager.get_user_info('se_khandwa')
-    if employee_no is not None:
-        print("employee_number", employee_no)
-    else:
-         print("employee_number is not found", employee_no , 200)
+# if __name__ == "__main__":
+#     user_profile_manager = myserv_get_empno_from_ngbusername() 
+#     employee_no = user_profile_manager.get_user_info('ae_kwz')
+#     # employee_no = user_profile_manager.get_user_info('ee_khandwa_city')
+#     # employee_no = user_profile_manager.get_user_info('se_khandwa')
+#     if employee_no is not None:
+#         print("employee_number", employee_no)
+#     else:
+#          print("employee_number is not found", employee_no , 200)

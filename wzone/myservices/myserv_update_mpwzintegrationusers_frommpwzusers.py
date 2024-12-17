@@ -1,16 +1,16 @@
 import datetime
 import bcrypt
 from pymongo import MongoClient
-from myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
-from myserv_connection_mongodb import myserv_connection_mongodb
+from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
 class myserv_update_mpwzintegrationusers_frommpwzusers:
 
     def __init__(self):     
-        self.mongo_db = myserv_connection_mongodb('admin')  
+        self.mongo_db = myserv_connection_mongodb()  
         self.dbconnect = self.mongo_db.get_connection() 
-        self.users_collection = self.db['mpwz_users']
-        self.integration_collection = self.db['mpwz_integration_users']        
+        self.users_collection = self.dbconnect['mpwz_users']
+        self.integration_collection = self.dbconnect['mpwz_integration_users']        
         self.seq_gen = myserv_generate_mpwz_id_forrecords()
 
     def process_users(self):

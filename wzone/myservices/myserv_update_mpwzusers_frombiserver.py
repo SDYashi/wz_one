@@ -1,6 +1,6 @@
 import psycopg2
 from pymongo import MongoClient
-from myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 class myserv_update_mpwzusers_frombiserver: 
 
     def __init__(self, pg_config, mongo_config):
@@ -20,9 +20,7 @@ class myserv_update_mpwzusers_frombiserver:
     def insert_into_mongo(self, records):
         insert_records=1
         for record in records:
-            employee_number = record[1]   
-            print("inserting data for username",employee_number)         
-            # Create the user_data dictionary for insert into mpwz_users
+            employee_number = record[1]  
             myseq_mpwz_id = self.seq_gen.get_next_sequence('mpwz_users')   
             user_data = {
                 'mpwz_id': str(myseq_mpwz_id),
@@ -87,31 +85,21 @@ class myserv_update_mpwzusers_frombiserver:
             }
             if not self.mongo_collection.find_one({'employee_number': employee_number}):
                 self.mongo_collection.insert_one(user_data)
-                print(f"{insert_records} user information saved successfully for: {employee_number}")
+                print(f"{insert_records} new user information saved successfully for: {employee_number}")
             else:
-                print(f"{insert_records} User information is already exists in database: {employee_number}")
+                self.mongo_collection.delete_one(user_data)
+                self.mongo_collection.insert_one(user_data)
+                print(f"{insert_records} user information is already existed in database so updated sccessfully for: {employee_number}")
             insert_records=insert_records+1
 
     def sync_databases(self):
         records = self.fetch_postgresql_data()
         self.insert_into_mongo(records)
+        return None
 
     def close_connections(self):
         self.pg_conn.close()
         self.mongo_client.close()
 
-# Configuration for PostgreSQL and MongoDB
-pg_config = {
-    'dbname': 'postgres',
-    'user': 'biro',
-    'password': 'biro',
-    'host': '10.98.0.87',
-    'port': '5432'
-}
 
-mongo_config = {
-    'uri': 'mongodb://localhost:27017/',
-    'db': 'admin',
-    'collection': 'mpwz_users'
-}
 

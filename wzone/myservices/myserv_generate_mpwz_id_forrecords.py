@@ -1,5 +1,3 @@
-import random
-import string
 from datetime import datetime
 from pymongo.errors import PyMongoError 
 from myservices.myserv_connection_mongodb import myserv_connection_mongodb 
