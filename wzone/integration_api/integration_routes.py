@@ -44,8 +44,8 @@ def after_request(response):
     finally:
         log_entry_event_api.mongo_dbconnect_close()
 
-@integration_api.route('/test-integration-api', methods=['GET'])
-def integration_api_route():
+@integration_api.route('/sync', methods=['GET'])
+def sync():
     return jsonify({"message": "Testing Integration Sync Records"})
 
 ## Extenal API for Get Data from Remote Servers ##
@@ -87,133 +87,66 @@ def create_notification_from_ngb():
         # existing_record = notifylist_collection.find_one({"notify_refsys_id": data["notify_refsys_id"]})
         # if existing_record:      
         #     return jsonify({"msg": "Records with notify_refsys_id already existed in database."}), 400
-        # else: 
-            # if data["notify_status"] == "APPROVED":
-            #         ngb_user_details = notifylist_collection.find_one({
-            #             "notify_to_id": data['notify_to_id'],
-            #             "notify_refsys_id": data['notify_refsys_id']
-            #         })
-            #         if ngb_user_details:  
-            #             update_query = {
-            #                 "notify_status": data["notify_status"],
-            #                 "notify_refsys_response": ngb_user_details,
-            #                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
-            #             }
+        # else:  
+            seq_gen = myserv_generate_mpwz_id_forrecords()
+            mpwz_id_sequenceno = seq_gen.get_next_sequence('mpwz_notifylist')
+            if mpwz_id_sequenceno:  
+                if app_request_type=="CC4":
+                    data['mpwz_id'] = mpwz_id_sequenceno
+                    data['app_source'] = "ngb"
+                    data['app_source_appid'] =  mpwz_id_sequenceno
+                    data['notify_status'] =  "PENDING"
+                    data['notify_refsys_id'] =  mpwz_id_sequenceno
+                    data['notify_to_id'] =  "91360238"
+                    data['notify_from_id'] =  "34460244"
+                    data['notify_to_name'] =  "Mr. Sunil Kumar Patodi"
+                    data['notify_from_name'] =  "Deepak Marskole"
+                    data['notify_datetime'] =  "01-01-2024"
+                    data['app_request_type'] =  "TADA" 
+                    data['notify_description'] =  "NA"
+                    data['notify_comments'] =  "NA"
+                    data['notify_notes'] =  "NA"
 
-            #             # Find the document and update it
-            #             result = notifylist_collection.update_one(
-            #                 {"notify_refsys_id": data["notify_refsys_id"], "notify_to_id": data["notify_to_id"]},
-            #                 {"$set": update_query}            )
-
-            #             if result.modified_count > 0:
-            #                 return jsonify({"msg": "Record updated successfully."}), 200
-            #             else:
-            #                 return jsonify({"msg": "Record not updated."}), 400
-            # elif data["notify_status"] == "REJECTED":
-            #         ngb_user_details = notifylist_collection.find_one({
-            #             "notify_to_id": data['notify_to_id'],
-            #             "notify_refsys_id": data['notify_refsys_id']
-            #         })
-            #         if ngb_user_details:  
-            #             update_query = {
-            #                 "notify_status": data["notify_status"],
-            #                 "notify_refsys_response": ngb_user_details,
-            #                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
-            #             }
-
-            #             # Find the document and update it
-            #             result = notifylist_collection.update_one(
-            #                 {"notify_refsys_id": data["notify_refsys_id"], "notify_to_id": data["notify_to_id"]},
-            #                 {"$set": update_query}
-            #             )
-
-            #             if result.modified_count > 0:
-            #                 return jsonify({"msg": "Record updated successfully."}), 200
-            #             else:
-            #                 return jsonify({"msg": "Record not updated."}), 400
-            # elif data["notify_status"] == "REASSIGNED":
-            #         ngb_user_details = notifylist_collection.find_one({
-            #             "notify_to_id": data['notify_to_id'],
-            #             "notify_refsys_id": data['notify_refsys_id']
-            #         })
-            #         if ngb_user_details:  
-            #             update_query = {    
-            #                 "notify_status": data["notify_status"],
-            #                 "notify_refsys_response": ngb_user_details, 
-            #                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
-            #             }
-
-            #             # Find the document and update it
-            #             result = notifylist_collection.update_one(
-            #                 {"notify_refsys_id": data["notify_refsys_id"], "notify_to_id": data["notify_to_id"]},
-            #                 {"$set": update_query}  
-            #             )
-
-            #             if result.modified_count > 0:
-            #                 return jsonify({"msg": "Record updated successfully."}), 200
-            #             else:
-            #                 return jsonify({"msg": "Record not updated."}), 400
-            # else:
-                seq_gen = myserv_generate_mpwz_id_forrecords()
-                mpwz_id_sequenceno = seq_gen.get_next_sequence('mpwz_notifylist')
-                if mpwz_id_sequenceno:  
-                    if app_request_type=="CC4":
-                        data['mpwz_id'] = mpwz_id_sequenceno
-                        data['app_source'] = "ngb"
-                        data['app_source_appid'] =  mpwz_id_sequenceno
-                        data['notify_status'] =  "PENDING"
-                        data['notify_refsys_id'] =  mpwz_id_sequenceno
-                        data['notify_to_id'] =  "91360238"
-                        data['notify_from_id'] =  "34460244"
-                        data['notify_to_name'] =  "Mr. Sunil Kumar Patodi"
-                        data['notify_from_name'] =  "Deepak Marskole"
-                        data['notify_datetime'] =  "01-01-2024"
-                        data['app_request_type'] =  "TADA" 
-                        data['notify_description'] =  "NA"
-                        data['notify_comments'] =  "NA"
-                        data['notify_notes'] =  "NA"
-
-                    if app_request_type=="CCB":
-                        data['mpwz_id'] = mpwz_id_sequenceno
-                        data['app_source'] = "ngb"
-                        data['app_source_appid'] =  mpwz_id_sequenceno
-                        data['notify_status'] =  "PENDING"
-                        data['notify_refsys_id'] = mpwz_id_sequenceno
-                        data['notify_to_id'] =  "91360238"
-                        data['notify_from_id'] =  "34460244"
-                        data['notify_to_name'] =  "Mr. Sunil Kumar Patodi"
-                        data['notify_from_name'] =  "Deepak Marskole"
-                        data['notify_datetime'] =  "01-01-2024"
-                        data['app_request_type'] =  "TADA" 
-                        data['notify_description'] =  "NA"
-                        data['notify_comments'] =  "NA"
-                        data['notify_notes'] =  "NA"
-                    else:
-                        return jsonify({"msg": f"invalid app request type not register here:- {app_request_type}"}), 200 
-                try:
-                    result = notifylist_collection.insert_one(data)
-                    if result:
-                        response_data = {   "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
-                                            "current_api": request.full_path,
-                                            "client_ip": request.remote_addr,
-                                            "response_at": datetime.datetime.now().isoformat()
-                                } 
-                        log_entry_event = myserv_update_users_logs()
-                        log_entry_event.log_api_call(response_data) 
-                        return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
-                    else:
-                        seq_gen.reset_sequence('mpwz_notifylist_erp')
-                        return jsonify({"msg": "Failed to insert data from remote server logs"}), 400 
-                except Exception as errors:
+                if app_request_type=="CCB":
+                    data['mpwz_id'] = mpwz_id_sequenceno
+                    data['app_source'] = "ngb"
+                    data['app_source_appid'] =  mpwz_id_sequenceno
+                    data['notify_status'] =  "PENDING"
+                    data['notify_refsys_id'] = mpwz_id_sequenceno
+                    data['notify_to_id'] =  "91360238"
+                    data['notify_from_id'] =  "34460244"
+                    data['notify_to_name'] =  "Mr. Sunil Kumar Patodi"
+                    data['notify_from_name'] =  "Deepak Marskole"
+                    data['notify_datetime'] =  "01-01-2024"
+                    data['app_request_type'] =  "TADA" 
+                    data['notify_description'] =  "NA"
+                    data['notify_comments'] =  "NA"
+                    data['notify_notes'] =  "NA"
+                else:
+                     return jsonify({"msg": f"invalid app request type not register here:- {app_request_type}"}), 200 
+            try:
+                result = notifylist_collection.insert_one(data)
+                if result:
+                    response_data = {   "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
+                                        "current_api": request.full_path,
+                                        "client_ip": request.remote_addr,
+                                        "response_at": datetime.datetime.now().isoformat()
+                            } 
+                    log_entry_event = myserv_update_users_logs()
+                    log_entry_event.log_api_call(response_data) 
+                    return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
+                else:
                     seq_gen.reset_sequence('mpwz_notifylist_erp')
-                    return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
-                finally:
-                    log_entry_event.mongo_dbconnect_close()
-                    notifylist_collection.mongo_dbconnect_close()
+                    return jsonify({"msg": "Failed to insert data from remote server logs"}), 400 
+                
+            except Exception as errors:
+                seq_gen.reset_sequence('mpwz_notifylist_erp')
+                return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
 
 @integration_api.route('/shared-call/api/v1/erp/post-notifyerp', methods=['POST'])
 @jwt_required()
 def create_notification_from_erp():
+    # Initialize MongoCollection Class
     notifylist_collection = MongoCollection("mpwz_notifylist")
     mpwz_integrated_app_collection = MongoCollection("mpwz_integrated_app")
     username = get_jwt_identity()
@@ -245,109 +178,42 @@ def create_notification_from_erp():
         # existing_record = notifylist_collection.find_one({"notify_refsys_id": data["notify_refsys_id"]})
         # if existing_record:      
         #     return jsonify({"msg": "Records with notify_refsys_id already existed in database."}), 400
-        # else: 
-            # if data["notify_status"] == "APPROVED":
-            #         ngb_user_details = notifylist_collection.find_one({
-            #             "notify_to_id": data['notify_to_id'],
-            #             "notify_refsys_id": data['notify_refsys_id']
-            #         })
-            #         if ngb_user_details:  
-            #             update_query = {
-            #                 "notify_status": data["notify_status"],
-            #                 "notify_refsys_response": ngb_user_details,
-            #                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
-            #             }
+        # else:  
 
-            #             # Find the document and update it
-            #             result = notifylist_collection.update_one(
-            #                 {"notify_refsys_id": data["notify_refsys_id"], "notify_to_id": data["notify_to_id"]},
-            #                 {"$set": update_query}            )
-
-            #             if result.modified_count > 0:
-            #                 return jsonify({"msg": "Record updated successfully."}), 200
-            #             else:
-            #                 return jsonify({"msg": "Record not updated."}), 400
-            # elif data["notify_status"] == "REJECTED":
-            #         ngb_user_details = notifylist_collection.find_one({
-            #             "notify_to_id": data['notify_to_id'],
-            #             "notify_refsys_id": data['notify_refsys_id']
-            #         })
-            #         if ngb_user_details:  
-            #             update_query = {
-            #                 "notify_status": data["notify_status"],
-            #                 "notify_refsys_response": ngb_user_details,
-            #                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
-            #             }
-
-            #             # Find the document and update it
-            #             result = notifylist_collection.update_one(
-            #                 {"notify_refsys_id": data["notify_refsys_id"], "notify_to_id": data["notify_to_id"]},
-            #                 {"$set": update_query}
-            #             )
-
-            #             if result.modified_count > 0:
-            #                 return jsonify({"msg": "Record updated successfully."}), 200
-            #             else:
-            #                 return jsonify({"msg": "Record not updated."}), 400
-            # elif data["notify_status"] == "REASSIGNED":
-            #         ngb_user_details = notifylist_collection.find_one({
-            #             "notify_to_id": data['notify_to_id'],
-            #             "notify_refsys_id": data['notify_refsys_id']
-            #         })
-            #         if ngb_user_details:  
-            #             update_query = {    
-            #                 "notify_status": data["notify_status"],
-            #                 "notify_refsys_response": ngb_user_details, 
-            #                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
-            #             }
-
-            #             # Find the document and update it
-            #             result = notifylist_collection.update_one(
-            #                 {"notify_refsys_id": data["notify_refsys_id"], "notify_to_id": data["notify_to_id"]},
-            #                 {"$set": update_query}  
-            #             )
-
-            #             if result.modified_count > 0:
-            #                 return jsonify({"msg": "Record updated successfully."}), 200
-            #             else:
-            #                 return jsonify({"msg": "Record not updated."}), 400
-            # else: 
-                    seq_gen = myserv_generate_mpwz_id_forrecords()
-                    mpwz_id_sequenceno = seq_gen.get_next_sequence('mpwz_notifylist')
-                    if mpwz_id_sequenceno:
-                            data['mpwz_id'] = mpwz_id_sequenceno
-                            data['app_source'] = "erp"
-                            data['app_source_appid'] =  mpwz_id_sequenceno
-                            data['notify_status'] =  "PENDING"
-                            data['notify_refsys_id'] = mpwz_id_sequenceno
-                            data['notify_to_id'] =  "91360238"
-                            data['notify_from_id'] =  "34460244"
-                            data['notify_to_name'] =  "Mr. Sunil Kumar Patodi"
-                            data['notify_from_name'] =  "Deepak Marskole"
-                            data['notify_datetime'] =  "01-01-2024"
-                            data['app_request_type'] =  "TADA" 
-                            data['notify_description'] =  "NA"
-                            data['notify_comments'] =  "NA"
-                            data['notify_notes'] =  "NA"
-                    try:
-                        result = notifylist_collection.insert_one(data)
-                        if result:
-                                    response_data = {   "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
-                                                        "current_api": request.full_path,
-                                                        "client_ip": request.remote_addr,
-                                                        "response_at": datetime.datetime.now().isoformat()
-                                            } 
-                                    log_entry_event = myserv_update_users_logs()
-                                    log_entry_event.log_api_call(response_data) 
-                                    return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
-                        else:
-                            seq_gen.reset_sequence('mpwz_notifylist')
-                            return jsonify({"msg": "Failed to insert data from remote server logs"}), 400 
-                        
-                    except Exception as errors:
-                        seq_gen.reset_sequence('mpwz_notifylist')
-                        return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
-                    finally:
-                        log_entry_event.mongo_dbconnect_close()
-                        notifylist_collection.mongo_dbconnect_close()
+            # Generate sequence number for mpwz_id
+            seq_gen = myserv_generate_mpwz_id_forrecords()
+            mpwz_id_sequenceno = seq_gen.get_next_sequence('mpwz_notifylist')
+            if mpwz_id_sequenceno:
+                    data['mpwz_id'] = mpwz_id_sequenceno
+                    data['app_source'] = "erp"
+                    data['app_source_appid'] =  mpwz_id_sequenceno
+                    data['notify_status'] =  "PENDING"
+                    data['notify_refsys_id'] = mpwz_id_sequenceno
+                    data['notify_to_id'] =  "91360238"
+                    data['notify_from_id'] =  "34460244"
+                    data['notify_to_name'] =  "Mr. Sunil Kumar Patodi"
+                    data['notify_from_name'] =  "Deepak Marskole"
+                    data['notify_datetime'] =  "01-01-2024"
+                    data['app_request_type'] =  "TADA" 
+                    data['notify_description'] =  "NA"
+                    data['notify_comments'] =  "NA"
+                    data['notify_notes'] =  "NA"
+            try:
+                result = notifylist_collection.insert_one(data)
+                if result:
+                            response_data = {   "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
+                                                "current_api": request.full_path,
+                                                "client_ip": request.remote_addr,
+                                                "response_at": datetime.datetime.now().isoformat()
+                                    } 
+                            log_entry_event = myserv_update_users_logs()
+                            log_entry_event.log_api_call(response_data) 
+                            return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
+                else:
+                    seq_gen.reset_sequence('mpwz_notifylist')
+                    return jsonify({"msg": "Failed to insert data from remote server logs"}), 400 
+                
+            except Exception as errors:
+                seq_gen.reset_sequence('mpwz_notifylist')
+                return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
 

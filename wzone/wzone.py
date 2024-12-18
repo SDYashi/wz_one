@@ -31,19 +31,6 @@ app.config.from_object(Config)
 app.register_blueprint(admin_api, url_prefix='/admin')
 app.register_blueprint(android_api, url_prefix='/android')
 app.register_blueprint(integration_api, url_prefix='/integration')
-# Error handlers
-@app.errorhandler(404)
-def not_found(error):
-    return jsonify({"error": "Not found"}), 404
-
-@app.errorhandler(500)
-def internal_error(error):
-    return jsonify({"error": "Internal server error"}), 500
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    # Handle generic exceptions
-    return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
   app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
