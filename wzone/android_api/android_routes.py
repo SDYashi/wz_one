@@ -916,9 +916,7 @@ def dashboard_action_history():
                 if action_history_records:
                     response_statuses = []
                     for status in action_history_records:
-                        # Ensure `status` is a dictionary
                         if isinstance(status, dict):
-                            # Creating new dictionary to remove _id from response
                             status_response = {key: value for key, value in status.items() if key != '_id'}
                             response_statuses.append(status_response)
                         else:

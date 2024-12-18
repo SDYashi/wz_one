@@ -5,6 +5,7 @@ import bcrypt
 from flask import jsonify, request
 from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
 from flask_pymongo import PyMongo
+from myservices.myserv_ip_service import myserv_ip_service
 from . import admin_api
 from myservices.myserv_update_mpwzintegrationusers_frommpwzusers import myserv_update_mpwzintegrationusers_frommpwzusers
 from myservices.myserv_update_mpwzusers_frombiserver import myserv_update_mpwzusers_frombiserver
@@ -15,6 +16,7 @@ from myservices.myserv_generate_secretkey_forapp import SecretKeyManager
 from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
+ip_service = myserv_ip_service()
 
 @admin_api.before_request
 def before_request():
@@ -51,10 +53,13 @@ def after_request(response):
 
 #Admin controller api for web users
 @admin_api.route('/get-adminapi-status', methods=['GET'])
+@ip_service.ip_required
 def dashboard():
     return jsonify({"msg": "Admin API is working"})
 
 @admin_api.route('/shared-call/api/v1/create-integration-users', methods=['POST'])
+@ip_service.ip_required
+@jwt_required()
 def create_integration_users_data():
     try:
         mpwz_integration_users = MongoCollection("mpwz_integration_users")
@@ -85,6 +90,7 @@ def create_integration_users_data():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/change-password-byadminuser', methods=['PUT'])
+@ip_service.ip_required
 @jwt_required()
 def change_password_byadmin_forany():
     try:
@@ -121,6 +127,7 @@ def change_password_byadmin_forany():
          mpwz_users.mongo_dbconnect_close()
 
 @admin_api.route('/notify-integrated-app', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def post_integrated_app():
     try:
@@ -166,6 +173,7 @@ def post_integrated_app():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-status', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def post_notify_status():
     try:
@@ -210,6 +218,7 @@ def post_notify_status():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/update_field_type_from_to', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def update_field_type():
     # Initialize the database updater
@@ -232,6 +241,7 @@ def update_field_type():
         return jsonify({'error': str(e)}), 500
 
 @admin_api.route('/update-fields-to-string', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def update_fields_to_string(): 
     try:        
@@ -262,12 +272,14 @@ def update_fields_to_string():
         }), 500
  
 @admin_api.route('/update-secret-key', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def update_secret_key_for_app():
     new_secret_key = SecretKeyManager.update_secret_key()
     return jsonify({"msg": "Secret key updated successfully.", "new_secret_key": new_secret_key})
 
 @admin_api.route('/insert-userlogininfo-from-mpwzusers', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def update_users():
     user_processor = myserv_update_mpwzintegrationusers_frommpwzusers()
@@ -281,6 +293,7 @@ def update_users():
     return jsonify(response)                    
 
 @admin_api.route('/insert-userinfo-from-powerbi-warehouse', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def sync_databases():
     try:
@@ -312,8 +325,8 @@ def sync_databases():
         print(f"An error occurred while connecting to Power BI warehouse: {e}")
         return jsonify({"msg": f"An error occurred while connecting to Power BI warehouse: {str(e)}"}), 500
     
-    
 @admin_api.route('/send-email', methods=['POST'])
+@ip_service.ip_required
 @jwt_required()
 def send_email():
     try:
@@ -338,6 +351,8 @@ def send_email():
         email_sender.sendemail_disconnect()
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
+@ip_service.ip_required
+@jwt_required()
 def update_work_location():
     try:
         mpwz_integration_users = MongoCollection("mpwz_integration_users")
@@ -369,3 +384,14 @@ def update_work_location():
     finally:
         mpwz_integration_users.mongo_dbconnect_close()
         log_entry_event.mongo_dbconnect_close()
+
+@admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
+@ip_service.ip_required
+@jwt_required()
+def add_user_ip_info_foradmin_panel():
+    user_info = request.json  
+    user_info['ip_address'] = request.remote_addr 
+    user_id = ip_service.insert_user_info(user_info)
+    return jsonify({"message": "User  information added successfully.", "user_id": user_id}), 201
+
+
