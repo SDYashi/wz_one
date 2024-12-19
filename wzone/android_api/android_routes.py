@@ -11,6 +11,7 @@ from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_i
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_forblueprints import MongoCollection
+from shared_api import shared_apiServices_callingforNGB
 from . import android_api
 
 @android_api.before_request
@@ -992,109 +993,107 @@ def statuswise_notification_list():
 @jwt_required()
 def update_notify_status_inhouse_app():
     try:
+        print("Initializing MongoDB collections and user logs")
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
         mpwz_integrated_app = MongoCollection("mpwz_integrated_app")
         log_entry_event = myserv_update_users_logs()
+        
+        print("Fetching user identity and request data")
         username = get_jwt_identity()
-        data = request.get_json() 
-        remote_response = "ok cofirm"
-        ngb_user_details = "" 
-        app_source = request.args.get('app_source')
-        app_exists = mpwz_integrated_app.find_one({"app_name": app_source})
+        data = request.get_json()
+        required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover", "notify_to_id"]
 
-        if not app_exists:
-            return jsonify({"msg": f"Requesting application is not integrated with our server:- {app_exists}"}), 400
-       
-        required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover","notify_to_id"]
+        print("Validating required fields in the request data")
         for field in required_fields:
             if field not in data:
                 return jsonify({"msg": f"{field} is required"}), 400
 
         notify_to_id = data["notify_to_id"]
         if notify_to_id != username:
+            print("Authorization failed: notify_to_id does not match username")
             return jsonify({"msg": "You are not authorized to update this notification status."}), 403
-        if app_source == 'ngb':
-            print(f"Searching for record with mpwz_id: {data['mpwz_id']}, notify_to_id: {data['notify_to_id']}, notify_refsys_id: {data['notify_refsys_id']}")
-            ngb_user_details = mpwz_notifylist.find_one({
-                "mpwz_id": data['mpwz_id'],
-                "notify_to_id": data['notify_to_id'],
-                "notify_refsys_id": data['notify_refsys_id']
-            })
-            print(ngb_user_details)
 
-            # if ngb_user_details is None:
-            #     return jsonify({"msg": "Notification details not found in databaase"}), 404
+        query = {
+            "mpwz_id": data["mpwz_id"],
+            "notify_to_id": data["notify_to_id"],
+            "notify_refsys_id": data["notify_refsys_id"]
+        }
 
-            # if ngb_user_details.get("notify_type") == "CC4":
-            #     shared_api_data = {
-            #         "id": ngb_user_details["notify_refsys_id"],
-            #         "locationCode": ngb_user_details["locationCode"],
-            #         "approver": ngb_user_details["approver"],
-            #         "billId": ngb_user_details["billId"],
-            #         "billCorrectionProfileInitiatorId": ngb_user_details["billCorrectionProfileInitiatorId"],
-            #         "status": data["notify_status"],
-            #         "remark": ngb_user_details["remark"],
-            #         "updatedBy": ngb_user_details["updatedBy"],
-            #         "updatedOn": ngb_user_details["updatedOn"]
-            #     }
-            #     remote_response = ngb_postapi_services.notify_ngb_toupdate_cc4status(shared_api_data)
+        print(f"Querying database with: {query}")
+        ngb_user_details = mpwz_notifylist.find_one(query)
 
-            # elif ngb_user_details.get("notify_type") == "CCB":
-            #     shared_api_data = {
-            #         "postingDate": ngb_user_details["postingDate"],
-            #         "amount": ngb_user_details["amount"],
-            #         "code": ngb_user_details["code"],
-            #         "ccbRegisterNo": ngb_user_details["ccbRegisterNo"],
-            #         "remark": ngb_user_details["remark"],
-            #         "consumerNo": ngb_user_details["consumerNo"],
-            #     }
-            #     remote_response = ngb_postapi_services.notify_ngb_toupdate_ccbstatus(shared_api_data)
-            # else:
-            #     return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
+        if ngb_user_details is None:
+            print("Notification details not found in database")
+            return jsonify({"msg": "Notification details not found in database"}), 404
 
-        # elif app_source == 'erp':
-        #     return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400
+        if ngb_user_details.get("app_request_type") == "CC4":
+            print("Processing notification for CC4")
+            shared_api_data = {
+                "id": ngb_user_details["notify_refsys_id"],
+                "locationCode": ngb_user_details["notify_refsys_id"],
+                "approver": ngb_user_details["notify_refsys_id"],
+                "billId": ngb_user_details["notify_refsys_id"],
+                "billCorrectionProfileInitiatorId": ngb_user_details["notify_refsys_id"],
+                "status": data["notify_refsys_id"],
+                "remark": ngb_user_details["notify_refsys_id"],
+                "updatedBy": ngb_user_details["notify_refsys_id"],
+                "updatedOn": ngb_user_details["notify_refsys_id"]
+            }
+            remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
+
+        elif ngb_user_details.get("app_request_type") == "CCB":
+            print("Processing notification for CCB")
+            shared_api_data = {
+                "postingDate": ngb_user_details["app_request_type"],
+                "amount": ngb_user_details["app_request_type"],
+                "code": ngb_user_details["app_request_type"],
+                "ccbRegisterNo": ngb_user_details["app_request_type"],
+                "remark": ngb_user_details["app_request_type"],
+                "consumerNo": ngb_user_details["app_request_type"],
+            }
+            remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
 
         else:
-            return jsonify({"msg": f"Something went wrong while verifying remote servers: {app_source}"}), 200
+            print("Notification Type is not allowed to push data to NGB")
+            return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
         
-        if ngb_user_details:            
-        # if remote_response is not None and remote_response.status_code == 200:
+        print(f"Remote response: {remote_response}")
+
+        if remote_response is not None and remote_response['status_code'] == 200:
+            print("Remote update successful, updating local database")
             update_query = {
                 "notify_status": data["notify_status"],
-                "notify_refsys_response": ngb_user_details,
+                "notify_refsys_response": remote_response,
                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
             }
+            print(f"Update Query: {update_query}")
+            print(f"Query: {query}")
 
-            # Find the document and update it
-            result = mpwz_notifylist.update_one(
-                {"mpwz_id": data["mpwz_id"], "notify_to_id": data["notify_to_id"]},
-                {"$set": update_query}            )
+            result= mpwz_notifylist.update_one(query,update_query )
 
             if result.modified_count > 0:
-                response_statuses = []
-                for status in result:
-                        status_response = {key: value for key, value in status.items() if key != '_id'}
-                        response_statuses.append(status_response)
-                        # Log entry in table 
-                        response_data = {
-                                    "msg": f"Notification Status Updated successfully for {username}",
-                                    "current_api": request.full_path,
-                                    "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now().isoformat()
-                        } 
-                        log_entry_event.log_api_call(response_data)
-
+                print(f"Local database updated successfully with {result.modified_count} modifications")
+                response_data = {
+                    "msg": f"Notification Status Updated successfully for {username}",
+                    "current_api": request.full_path,
+                    "client_ip": request.remote_addr,
+                    "response_at": datetime.datetime.now().isoformat()
+                }
+                log_entry_event.log_api_call(response_data)
                 return jsonify({"msg": f"Notification Status Updated Successfully {result.modified_count}"}), 200
             else:
-                return jsonify({"msg": f"Something went wrong while updating Notification in own servers: {app_source}"}), 400
+                print("Failed to update notification in own servers")
+                return jsonify({"msg": "Something went wrong while updating Notification in own servers"}), 400
         else:
-            return jsonify({"msg": f"Something went wrong while updating Notification into remote servers: {app_source}"}), 200
+            print("Failed to update notification into remote servers")
+            return jsonify({"msg": "Something went wrong while updating Notification into remote servers"}), 400
     except Exception as e:
-        return jsonify({"msg": f"Something went wrong while processing request in primary stage {str(e)}"}), 500
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_integrated_app.mongo_dbconnect_close() 
-         mpwz_notifylist.mongo_dbconnect_close() 
+        print(f"Exception occurred: {e}")
+        return jsonify({"msg": str(e)}), 500
+    finally:
+        print("Closing MongoDB connections")
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_integrated_app.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
 
 

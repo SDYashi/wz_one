@@ -13,7 +13,7 @@ class myserv_connection_mongodb:
             try:
                 self.client = MongoClient(self.uri)
                 self.db = self.client[self.db_name]
-                print("MongoDB connection established.")
+                # print("MongoDB connection established.")
             except ConnectionFailure as e:
                 print(f"Could not connect to MongoDB: {e}")
         return self.db
@@ -23,5 +23,5 @@ class myserv_connection_mongodb:
             self.client.close()
             self.client = None
             self.db = None
-            print("MongoDB connection closed.")
+            print("MongoDB connection closed")
             

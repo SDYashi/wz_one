@@ -1,6 +1,5 @@
-from pymongo import MongoClient
+from  myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
-from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 class MongoCollection:
     def __init__(self, collection_name): 
         self.mongo_db = myserv_connection_mongodb()  
@@ -10,10 +9,8 @@ class MongoCollection:
     def insert_one(self, data):
         try:
             result = self.collection.insert_one(data)
-            if result:
-                # Convert ObjectId to string
-                result['_id'] = str(result['_id'])
-            return result
+            print(f"Insert result: {result}")  # Debugging
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while inserting data: {e}")
             return None
@@ -21,10 +18,8 @@ class MongoCollection:
     def insert_many(self, data):
         try:
             result = self.collection.insert_many(data)
-            if result:
-                # Convert ObjectId to string
-                result = [str(id) for id in result.inserted_ids]
-            return result
+            print(f"Insert many result: {result.inserted_ids}")  # Debugging
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while inserting data: {e}")
             return None
@@ -32,10 +27,7 @@ class MongoCollection:
     def find_one(self, query):
         try:
             result = self.collection.find_one(query)
-            if result:
-                # Convert ObjectId to string
-                result['_id'] = str(result['_id'])
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while finding data: {e}")
             return None
@@ -43,10 +35,7 @@ class MongoCollection:
     def find(self, query):
         try:
             result = self.collection.find(query)
-            if result:
-                # Convert ObjectId to string
-                result = [{**item, '_id': str(item['_id'])} for item in result]
-            return result
+            return list(result)  # Return the raw cursor
         except Exception as e:
             print(f"Error while finding data: {e}")
             return None
@@ -54,28 +43,23 @@ class MongoCollection:
     def find_all(self):
         try:
             result = self.collection.find()
-            if result:
-                # Convert ObjectId to string
-                result = [{**item, '_id': str(item['_id'])} for item in result]
-            return result
+            return list(result)  # Return the raw cursor
         except Exception as e:
             print(f"Error while finding data: {e}")
             return None
+
     def find_distinct(self, field):
-            try:
-                result = self.collection.distinct(field)
-                return result
-            except Exception as e:
-                print(f"Error while finding distinct values: {e}")
-                return None   
+        try:
+            result = self.collection.distinct(field)
+            return result  # Return the raw result
+        except Exception as e:
+            print(f"Error while finding distinct values: {e}")
+            return None   
 
     def update_one(self, query, update_data):
         try:
             result = self.collection.update_one(query, {"$set": update_data})
-            if result:
-                # Convert ObjectId to string
-                result['_id'] = str(result['_id'])
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while updating data: {e}")
             return None
@@ -83,10 +67,7 @@ class MongoCollection:
     def update_many(self, query, update_data):
         try:
             result = self.collection.update_many(query, {"$set": update_data})
-            if result:
-                # Convert ObjectId to string
-                result['_id'] = str(result['_id'])
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while updating data: {e}")
             return None
@@ -94,10 +75,7 @@ class MongoCollection:
     def delete_one(self, query):
         try:
             result = self.collection.delete_one(query)
-            if result:
-                # Convert ObjectId to string
-                result['_id'] = str(result['_id'])
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while deleting data: {e}")
             return None
@@ -105,10 +83,7 @@ class MongoCollection:
     def delete_many(self, query):
         try:
             result = self.collection.delete_many(query)
-            if result:
-                # Convert ObjectId to string
-                result['_id'] = str(result['_id'])
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while deleting data: {e}")
             return None
@@ -116,7 +91,7 @@ class MongoCollection:
     def count_documents(self, query):
         try:
             result = self.collection.count_documents(query)
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while counting documents: {e}")
             return None
@@ -124,10 +99,7 @@ class MongoCollection:
     def aggregate(self, pipeline):
         try:
             result = self.collection.aggregate(pipeline)
-            if result:
-                # Convert ObjectId to string
-                result = [{**item, '_id': str(item['_id'])} for item in result]
-            return result
+            return list(result)  # Return the raw cursor
         except Exception as e:
             print(f"Error while aggregating data: {e}")
             return None
@@ -135,15 +107,15 @@ class MongoCollection:
     def create_index(self, key_or_list, unique=False):
         try:
             result = self.collection.create_index(key_or_list, unique=unique)
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while creating index: {e}")
             return None
 
     def drop_index(self, index_or_name):
         try:
-            result = self.collection.drop_index(index_or_name)
-            return result
+            result = self .collection.drop_index(index_or_name)
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while dropping index: {e}")
             return None
@@ -151,59 +123,87 @@ class MongoCollection:
     def drop_collection(self):
         try:
             result = self.collection.drop()
-            return result
+            return result  # Return the raw result
         except Exception as e:
             print(f"Error while dropping collection: {e}")
             return None
 
     def rename_collection(self, new_name):
         try:
-            result = self.collection.rename(new_name)
-            return result
+            self.dbconnect[self.collection.name].rename(new_name)
+            return f"Collection renamed to {new_name}"  # Return success message
         except Exception as e:
             print(f"Error while renaming collection: {e}")
             return None
 
-    def create_collection(self, collection_name):
+    def mongo_dbconnect_close(self):
         try:
-            result = self.dbconnect.create_collection(collection_name)
-            return result
+            self.dbconnect.close()
+            return "Connection closed successfully."  # Return success message
         except Exception as e:
-            print(f"Error while creating collection: {e}")
+            print(f"Error while closing connection: {e}")
             return None
 
-    def drop_database(self):
+    def create_database(self, db_name):
         try:
-            result = self.dbconnect.drop()
-            return result
+            new_db = self.mongo_db.client[db_name]  # Create a new database
+            return f"Database '{db_name}' created successfully."
+        except Exception as e:
+            print(f"Error while creating database: {e}")
+            return None
+
+    def drop_database(self, db_name):
+        try:
+            self.mongo_db.client.drop_database(db_name)  # Drop the specified database
+            return f"Database '{db_name}' dropped successfully."
         except Exception as e:
             print(f"Error while dropping database: {e}")
             return None
 
+    def bulk_write(self, operations):
+        try:
+            result = self.collection.bulk_write(operations)
+            return result  # Return the raw result
+        except Exception as e:
+            print(f"Error while performing bulk write: {e}")
+            return None
+
+    def find_one_and_update(self, query, update_data):
+        try:
+            result = self.collection.find_one_and_update(query, {"$set": update_data})
+            return result  # Return the raw result
+        except Exception as e:
+            print(f"Error while finding and updating data: {e}")
+            return None
+
+    def find_one_and_replace(self, query, replacement):
+        try:
+            result = self.collection.find_one_and_replace(query, replacement)
+            return result  # Return the raw result
+        except Exception as e:
+            print(f"Error while finding and replacing data: {e}")
+            return None
+
+    def find_one_and_delete(self, query):
+        try:
+            result = self.collection.find_one_and_delete(query)
+            return result  # Return the raw result
+        except Exception as e:
+            print(f"Error while finding and deleting data: {e}")
+            return None
+
     def list_collections(self):
         try:
-            result = self.dbconnect.list_collection_names()
-            return result
+            collections = self.dbconnect.list_collection_names()
+            return collections  # Return the list of collections
         except Exception as e:
             print(f"Error while listing collections: {e}")
             return None
 
-    def list_databases(self):
+    def get_collection_stats(self):
         try:
-            result = self.dbconnect.client.list_database_names()
-            return result
+            stats = self.dbconnect.command("collStats", self.collection.name)
+            return stats  # Return the collection statistics
         except Exception as e:
-            print(f"Error while listing databases: {e}")
+            print(f"Error while getting collection stats: {e}")
             return None
-
-    def reset_sequence(self, sequence_name):
-        try:
-            sequence_collection = self.dbconnect['sequences']
-            sequence_collection.update_one({"_id": sequence_name}, {"$set": {"value": 0}})
-        except Exception as e:
-            print(f"Error while resetting sequence: {e}")
-            return None
-
-    def mongo_dbconnect_close(self):
-        status = self.mongo_db.close_connection()
-        return status

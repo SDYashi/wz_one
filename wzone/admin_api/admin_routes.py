@@ -50,11 +50,8 @@ def after_request(response):
         log_entry_event_api.mongo_dbconnect_close()
 
 #Admin controller api for web users
-@admin_api.route('/get-adminapi-status', methods=['GET'])
-def dashboard():
-    return jsonify({"msg": "Admin API is working"})
-
 @admin_api.route('/shared-call/api/v1/create-integration-users', methods=['POST'])
+@jwt_required()
 def create_integration_users_data():
     try:
         mpwz_integration_users = MongoCollection("mpwz_integration_users")
@@ -338,6 +335,7 @@ def send_email():
         email_sender.sendemail_disconnect()
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
+@jwt_required()
 def update_work_location():
     try:
         mpwz_integration_users = MongoCollection("mpwz_integration_users")
@@ -369,3 +367,22 @@ def update_work_location():
     finally:
         mpwz_integration_users.mongo_dbconnect_close()
         log_entry_event.mongo_dbconnect_close()
+
+@admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
+@jwt_required()
+def insert_data_addip_admin():
+    collection = MongoCollection("mpwz_iplist_adminpanel")
+    data = request.json
+    # Validate the incoming data
+    if not data or not all(key in data for key in ['username', 'email', 'phone', 'employee_no', 'ip_address']):
+        return jsonify({"error": "Invalid data"}), 400
+
+    # Check for duplicate username
+    if collection.find_one({"username": data['username']}):
+        return jsonify({"error": "Username already exists"}), 400
+
+    # Check for duplicate IP address
+    if collection.find_one({"ip_address": data['ip_address']}):
+        return jsonify({"error": "IP address already exists"}), 400
+    result = collection.insert_one(data)
+    return jsonify({"inserted_id": str(result.inserted_id)}), 200       
