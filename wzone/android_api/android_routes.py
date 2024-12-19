@@ -218,16 +218,19 @@ def change_password():
 @jwt_required()
 def view_profile():
     try:
-        mpwz_integration_users = MongoCollection("mpwz_integration_users")
+        mpwz_integration_users = MongoCollection("mpwz_users")
         log_entry_event = myserv_update_users_logs()
         username = get_jwt_identity()
         # Retrieve the user profile from the database
-        user = mpwz_integration_users.find_one({"username": username})
+        user = mpwz_integration_users.find_one({"employee_number": username})
 
         if user:
+            # Add _id to the response, converting ObjectId to string
+            user['_id'] = str(user['_id'])
             for key, value in user.items():
                 if isinstance(value, bytes):
                     user[key] = base64.b64encode(value).decode('utf-8')  
+                    
             response_data = {
                 "msg": f"User Profile loaded successfully for {username}",
                 "current_api": request.full_path,
@@ -315,11 +318,13 @@ def get_integrated_app_list():
 @jwt_required()
 def my_request_notification_count():
     try:
+        # Initialize MongoDB collection and logging utility
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
         log_entry_event = myserv_update_users_logs()
+
         username = get_jwt_identity()
         notification_status = request.args.get('notification_status')
-        
+
         # Initialize response structure
         response_data = {
             'username': username,
@@ -327,18 +332,14 @@ def my_request_notification_count():
             'app_notifications_count': {}
         }
 
-        match_stage = {
-            'notify_from_id': username
-        }
-        
+        # Match stage for aggregation
+        match_stage = {'notify_from_id': username}
         if notification_status:
             match_stage['notify_status'] = notification_status
 
-        # Mongo aggregation pipeline
+        # Aggregation pipeline
         pipeline = [
-            {
-                '$match': match_stage
-            },
+            {'$match': match_stage},
             {
                 '$group': {
                     '_id': {
@@ -348,47 +349,38 @@ def my_request_notification_count():
                     'count': {'$sum': 1}
                 }
             }
-        ] 
-        
-        # Fetch notification counts using aggregate
-        notification_counts = list(mpwz_notifylist.aggregate(pipeline))  # Ensure it's a list
-        
-        # Log the aggregation result
+        ]
+
+        # Execute aggregation
+        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
+
+        # Log aggregation result
         current_time = datetime.datetime.now().isoformat()
-        print(f"[{current_time}] Aggregation Result: {notification_counts}")  # Debug log for aggregation result
+        print(f"[{current_time}] Aggregation Result: {notification_counts}")
 
-        if notification_counts:
-            # Process each aggregation result
-            for doc in notification_counts:
-                # Log the structure of each doc
-                print(f"[{current_time}] Processing doc: {doc}")  # Debug log for each document
-                
-                # Parse the string representation of the dict in _id into a real dictionary
-                try:
-                    doc_id = ast.literal_eval(doc['_id'])  # Safely convert string to dictionary
-                except Exception as e:
-                    print(f"Error parsing _id: {e}")
-                    continue
+        # Process aggregation results
+        for doc in notification_counts:
+            print(f"[{current_time}] Processing doc: {doc}")
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                app_source = doc['_id'].get('app_source')
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count', 0)
 
-                if isinstance(doc_id, dict) and 'app_source' in doc_id and 'notify_status' in doc_id:
-                    app_source = doc_id['app_source']
-                    notify_status = doc_id['notify_status']
-                    count = doc['count']
-
-                    # Initialize app_source if not already in response_data
+                if app_source and notify_status:
+                    # Initialize app_source if not already present
                     if app_source not in response_data['app_notifications_count']:
                         response_data['app_notifications_count'][app_source] = {}
 
-                    # Store the count under the appropriate notify_status
+                    # Add count to the respective notify_status
                     response_data['app_notifications_count'][app_source][notify_status] = count
 
-                    # If the notify_status is 'Pending', add to the total count
+                    # Increment total pending count for 'PENDING' status
                     if notify_status == 'PENDING':
                         response_data['total_pending_count'] += count
 
         # Log the successful response
         log_data = {
-            "msg": f"Pending request count loaded successfully for {username}",
+            "msg": f"My request notification count loaded successfully for {username}",
             "current_api": request.full_path,
             "client_ip": request.remote_addr,
             "response_at": datetime.datetime.now().isoformat()
@@ -401,11 +393,12 @@ def my_request_notification_count():
     except Exception as e:
         # Log error for debugging
         print(f"Error occurred: {str(e)}")
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500 
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
 
-    finally: 
-        log_entry_event.mongo_dbconnect_close() 
+    finally:
+        log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
+
 
 @android_api.route('/my-request-notify-list', methods=['GET'])
 @jwt_required()
@@ -468,11 +461,13 @@ def my_request_notification_list():
 @jwt_required()
 def pending_notification_count():
     try:
+        # Initialize MongoDB collection and logging utility
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
         log_entry_event = myserv_update_users_logs()
+
         username = get_jwt_identity()
         notification_status = request.args.get('notification_status')
-        
+
         # Initialize response structure
         response_data = {
             'username': username,
@@ -480,18 +475,14 @@ def pending_notification_count():
             'app_notifications_count': {}
         }
 
-        match_stage = {
-            'notify_to_id': username
-        }
-        
+        # Match stage for aggregation
+        match_stage = {'notify_to_id': username}
         if notification_status:
             match_stage['notify_status'] = notification_status
 
-        # Mongo aggregation pipeline
+        # Aggregation pipeline
         pipeline = [
-            {
-                '$match': match_stage
-            },
+            {'$match': match_stage},
             {
                 '$group': {
                     '_id': {
@@ -501,34 +492,32 @@ def pending_notification_count():
                     'count': {'$sum': 1}
                 }
             }
-        ] 
-        notification_counts = list(mpwz_notifylist.aggregate(pipeline))  
-        
-        # Log the aggregation result
+        ]
+
+        # Execute aggregation
+        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
+
+        # Log aggregation result
         current_time = datetime.datetime.now().isoformat()
-        print(f"[{current_time}] Aggregation Result: {notification_counts}")  
+        print(f"[{current_time}] Aggregation Result: {notification_counts}")
 
-        if notification_counts:
-            for doc in notification_counts:
-                print(f"[{current_time}] Processing doc: {doc}")  
-                try:
-                    doc_id = ast.literal_eval(doc['_id'])  
-                except Exception as e:
-                    print(f"Error parsing _id: {e}")
-                    continue
+        # Process aggregation results
+        for doc in notification_counts:
+            print(f"[{current_time}] Processing doc: {doc}")
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                app_source = doc['_id'].get('app_source')
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count', 0)
 
-                if isinstance(doc_id, dict) and 'app_source' in doc_id and 'notify_status' in doc_id:
-                    app_source = doc_id['app_source']
-                    notify_status = doc_id['notify_status']
-                    count = doc['count']
-                    
+                if app_source and notify_status:
+                    # Initialize app source dictionary if not already present
                     if app_source not in response_data['app_notifications_count']:
                         response_data['app_notifications_count'][app_source] = {}
 
-                    # Store the count under the appropriate notify_status
+                    # Add count to the respective notify_status
                     response_data['app_notifications_count'][app_source][notify_status] = count
 
-                    # If the notify_status is 'Pending', add to the total count
+                    # Add to total pending count if status is 'PENDING'
                     if notify_status == 'PENDING':
                         response_data['total_pending_count'] += count
 
@@ -546,10 +535,10 @@ def pending_notification_count():
 
     except Exception as e:
         print(f"Error occurred: {str(e)}")
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500 
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
 
-    finally: 
-        log_entry_event.mongo_dbconnect_close() 
+    finally:
+        log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
 
 @android_api.route('/pending-notify-list', methods=['GET'])
@@ -723,7 +712,7 @@ def total_notification_count():
         
         match_stage = {
             'notify_to_id': username
-        } 
+        }
         
         pipeline = [
             {
@@ -738,7 +727,7 @@ def total_notification_count():
                     'count': {'$sum': 1}
                 }
             }
-        ] 
+        ]
         
         # Execute the aggregation pipeline and get the result
         notification_counts = list(mpwz_notifylist.aggregate(pipeline))
@@ -748,48 +737,23 @@ def total_notification_count():
 
         if not notification_counts:
             return jsonify({"msg": f"No notifications found for the user {username}."}), 404
-        
+
         for doc in notification_counts:
             # Ensure `doc` is a dictionary and contains the expected fields
-            if isinstance(doc, dict):
-                print("Document:", doc)  # Debugging to check doc structure
-                if '_id' in doc:
-                    # Try to parse the _id field as a dictionary
-                    try:
-                        _id = eval(doc['_id'])
-                    except Exception as e:
-                        # If parsing fails, raise a ValueError
-                        raise ValueError(f"Invalid structure for _id field in document: {doc}")
-                    
-                    # Ensure _id is a dictionary
-                    if not isinstance(_id, dict):
-                        raise ValueError(f"Invalid structure for _id field in document: {doc}")
-                    
-                    app_source = _id.get('app_source')
-                    notify_status = _id.get('notify_status')
-                    count = doc.get('count')
-                    
-                    if app_source is None or notify_status is None:
-                        raise ValueError(f"Missing expected data in document: {doc}")
-                    
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                app_source = doc['_id'].get('app_source')
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count')
+
+                if app_source and notify_status:
                     # Initialize the app_source dictionary if it doesn't exist
                     if app_source not in response_data['app_notifications_count']:
                         response_data['app_notifications_count'][app_source] = {}
 
                     # Set the count for the specific notify_status
                     response_data['app_notifications_count'][app_source][notify_status] = count
-                else:
-                    raise ValueError(f"Invalid structure for document: {doc}")
             else:
-                raise ValueError(f"Expected a dictionary, but got: {type(doc)}")
-
-        # Log the response statuses if results exist
-        response_statuses = []
-        for status in notification_counts:
-            # Make sure that we are only working with a valid structure
-            if isinstance(status, dict):
-                status_response = {key: value for key, value in status.items() if key != '_id'}
-                response_statuses.append(status_response)
+                raise ValueError(f"Invalid structure for _id field in document: {doc}")
 
         # Log the event
         log_entry_data = {
@@ -798,9 +762,9 @@ def total_notification_count():
             "client_ip": request.remote_addr,
             "response_at": datetime.datetime.now().isoformat()
         }
-        log_entry_event.log_api_call(log_entry_data)       
+        log_entry_event.log_api_call(log_entry_data)
 
-        return jsonify([response_data['app_notifications_count']]), 200
+        return jsonify(response_data['app_notifications_count']), 200
 
     except Exception as e:
         # Catch exceptions and provide specific error information
@@ -808,7 +772,7 @@ def total_notification_count():
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
 
     finally:
-        log_entry_event.mongo_dbconnect_close() 
+        log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
 
 @android_api.route('/dashboard-statuswise-notify-count', methods=['GET'])
@@ -830,7 +794,7 @@ def statuswise_notification_count():
                 {'notify_to_id': username},
                 {'notify_from_id': username}
             ]
-        } 
+        }
         
         pipeline = [
             {
@@ -839,47 +803,38 @@ def statuswise_notification_count():
             {
                 '$group': {
                     '_id': {
-                        'notify_status': '$notify_status',
+                        'notify_status': '$notify_status'
                     },
                     'count': {'$sum': 1}
                 }
             }
-        ] 
+        ]
         
-        notification_counts = mpwz_notifylist.aggregate(pipeline)        
-        notification_counts_list = list(notification_counts)  # Convert cursor to list for multiple iterations
+        # Execute the aggregation pipeline
+        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
 
-        for doc in notification_counts_list:
-            # Try to parse the _id field as a dictionary
-            try:
-                _id = eval(doc['_id'])
-            except Exception as e:
-                # If parsing fails, raise a ValueError
-                raise ValueError(f"Invalid structure for _id field in document: {doc}")
-            
-            # Ensure _id is a dictionary
-            if not isinstance(_id, dict):
-                raise ValueError(f"Invalid structure for _id field in document: {doc}")
-            
-            notify_status = _id.get('notify_status')
-            # Initialize status_count for the notify_status if it doesn't exist
-            if notify_status not in response_data['status_count']:
-                response_data['status_count'][notify_status] = 0
+        # Process the aggregation results
+        for doc in notification_counts:
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count', 0)
 
-            # Update the count for the specific notify_status
-            response_data['status_count'][notify_status] += doc['count']
-            response_data['total_count'] += doc['count']
+                if notify_status:
+                    # Update the count for the specific notify_status
+                    response_data['status_count'][notify_status] = response_data['status_count'].get(notify_status, 0) + count
+                    response_data['total_count'] += count
+            else:
+                raise ValueError(f"Invalid structure for document: {doc}")
 
-        # Log the response statuses
+        # Log the event
         if response_data['total_count'] > 0:
-            response_data_logs = {
-                                    "msg": f"Dashboard Status wise countcount loaded successfully for {username}",
-                                    "current_api": request.full_path,
-                                    "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now().isoformat()
-            } 
-            # Log entry in table 
-            log_entry_event.log_api_call(response_data_logs)
+            log_entry_data = {
+                "msg": f"Dashboard status-wise count loaded successfully for {username}",
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": datetime.datetime.now().isoformat()
+            }
+            log_entry_event.log_api_call(log_entry_data)
 
             # Return the response with total counts and status counts
             return jsonify({
@@ -887,12 +842,16 @@ def statuswise_notification_count():
                 "status_count": response_data['status_count']
             }), 200
         else:
-            return jsonify({"msg": f"No notifications found for the user {username}."}), 404  
+            return jsonify({"msg": f"No notifications found for the user {username}."}), 404
+
     except Exception as e:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_notifylist.mongo_dbconnect_close()     
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
+
+
 
 @android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()

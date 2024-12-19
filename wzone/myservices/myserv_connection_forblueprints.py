@@ -99,7 +99,7 @@ class MongoCollection:
     def aggregate(self, pipeline):
         try:
             result = self.collection.aggregate(pipeline)
-            return list(result)  # Return the raw cursor
+            return result # Return the raw cursor
         except Exception as e:
             print(f"Error while aggregating data: {e}")
             return None
@@ -138,7 +138,7 @@ class MongoCollection:
 
     def mongo_dbconnect_close(self):
         try:
-            self.dbconnect.close()
+            self.mongo_db.close_connection()
             return "Connection closed successfully."  # Return success message
         except Exception as e:
             print(f"Error while closing connection: {e}")

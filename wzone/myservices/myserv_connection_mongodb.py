@@ -23,5 +23,5 @@ class myserv_connection_mongodb:
             self.client.close()
             self.client = None
             self.db = None
-            print("MongoDB connection closed")
+    
             

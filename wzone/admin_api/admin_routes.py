@@ -97,7 +97,7 @@ def change_password_byadmin_forany():
         # Hash the new password
         hashed_password = bcrypt.hashpw(new_password_user.encode('utf-8'), bcrypt.gensalt())
         # Update the password in the database
-        response = mpwz_users.update_one({"username": username_user}, {"$set": {"password": hashed_password}})
+        response = mpwz_users.update_one({"username": username_user},  {"password": hashed_password})
         if response.modified_count == 0:
             return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400        
         else: 
@@ -126,6 +126,7 @@ def post_integrated_app():
         seq_gen = myserv_generate_mpwz_id_forrecords()
         username = get_jwt_identity()
         data = request.get_json()
+        
         if 'app_name' not in data:
             return jsonify({"msg": "app_name is required"}), 400
 
@@ -144,23 +145,26 @@ def post_integrated_app():
             }
 
             result = mpwz_integrated_app.insert_one(app_name_list)
-            if result: 
-                response_data = {      "msg": f"New App integrated successfully",
-                                    "current_api": request.full_path,
-                                    "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now().isoformat()
-                        } 
+            if result:
+                # Add _id to the response, converting ObjectId to string
+                app_name_list['_id'] = str(result.inserted_id)
+                response_data = {  
+                    "msg": "New App integrated successfully",
+                    "current_api": request.full_path,
+                    "client_ip": request.remote_addr,
+                    "response_at": datetime.datetime.now().isoformat()
+                }
                 log_entry_event.log_api_call(response_data) 
                 return jsonify(app_name_list), 200
             else:
                 return jsonify({"msg": "Unable to add new app details in the system, try again..."}), 500
     except Exception as e:
-        return jsonify({"msg": f"An error occurred while processing the request. errors. {str(e)}"}), 500
+        return jsonify({"msg": f"An error occurred while processing the request. {str(e)}"}), 500
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_integrated_app.mongo_dbconnect_close()
+        seq_gen.mongo_dbconnect_close()
 
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_integrated_app.mongo_dbconnect_close()
-         seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-status', methods=['POST'])
 @jwt_required()
@@ -189,6 +193,8 @@ def post_notify_status():
             } 
             result = mpwz_notify_status.insert_one(new_status)
             if result: 
+                # Add _id to the response, converting ObjectId to string
+                new_status['_id'] = str(result.inserted_id)
                 response_data = {      "msg": f"New Status Added successfully",
                                     "current_api": request.full_path,
                                     "client_ip": request.remote_addr,
@@ -349,7 +355,7 @@ def update_work_location():
 
         result = mpwz_integration_users.update_one(
             {"username": username},
-            {"$set": {"work_location_code": new_work_location_code}}
+            {"work_location_code": new_work_location_code}
         )
 
         if result.matched_count == 0:
