@@ -138,7 +138,7 @@ class MongoCollection:
 
     def mongo_dbconnect_close(self):
         try:
-            self.dbconnect.close()
+            self.mongo_db.close_connection()
             return "Connection closed successfully."  # Return success message
         except Exception as e:
             print(f"Error while closing connection: {e}")

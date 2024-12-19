@@ -993,24 +993,16 @@ def statuswise_notification_list():
 @jwt_required()
 def update_notify_status_inhouse_app():
     try:
-        print("Initializing MongoDB collections and user logs")
-        mpwz_notifylist = MongoCollection("mpwz_notifylist")
-        mpwz_integrated_app = MongoCollection("mpwz_integrated_app")
-        log_entry_event = myserv_update_users_logs()
-        
-        print("Fetching user identity and request data")
         username = get_jwt_identity()
         data = request.get_json()
         required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover", "notify_to_id"]
 
-        print("Validating required fields in the request data")
         for field in required_fields:
             if field not in data:
                 return jsonify({"msg": f"{field} is required"}), 400
 
         notify_to_id = data["notify_to_id"]
         if notify_to_id != username:
-            print("Authorization failed: notify_to_id does not match username")
             return jsonify({"msg": "You are not authorized to update this notification status."}), 403
 
         query = {
@@ -1019,15 +1011,13 @@ def update_notify_status_inhouse_app():
             "notify_refsys_id": data["notify_refsys_id"]
         }
 
-        print(f"Querying database with: {query}")
+        mpwz_notifylist = MongoCollection("mpwz_notifylist")
         ngb_user_details = mpwz_notifylist.find_one(query)
 
         if ngb_user_details is None:
-            print("Notification details not found in database")
             return jsonify({"msg": "Notification details not found in database"}), 404
 
         if ngb_user_details.get("app_request_type") == "CC4":
-            print("Processing notification for CC4")
             shared_api_data = {
                 "id": ngb_user_details["notify_refsys_id"],
                 "locationCode": ngb_user_details["notify_refsys_id"],
@@ -1042,7 +1032,6 @@ def update_notify_status_inhouse_app():
             remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
 
         elif ngb_user_details.get("app_request_type") == "CCB":
-            print("Processing notification for CCB")
             shared_api_data = {
                 "postingDate": ngb_user_details["app_request_type"],
                 "amount": ngb_user_details["app_request_type"],
@@ -1054,46 +1043,31 @@ def update_notify_status_inhouse_app():
             remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
 
         else:
-            print("Notification Type is not allowed to push data to NGB")
             return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
-        
-        print(f"Remote response: {remote_response}")
 
         if remote_response is not None and remote_response['status_code'] == 200:
-            print("Remote update successful, updating local database")
             update_query = {
                 "notify_status": data["notify_status"],
                 "notify_refsys_response": remote_response,
                 "notify_status_updatedon": datetime.datetime.now().isoformat(),
             }
-            print(f"Update Query: {update_query}")
-            print(f"Query: {query}")
-
             result= mpwz_notifylist.update_one(query,update_query )
-
             if result.modified_count > 0:
-                print(f"Local database updated successfully with {result.modified_count} modifications")
                 response_data = {
                     "msg": f"Notification Status Updated successfully for {username}",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
                     "response_at": datetime.datetime.now().isoformat()
                 }
-                log_entry_event.log_api_call(response_data)
+                myserv_update_users_logs().log_api_call(response_data)
                 return jsonify({"msg": f"Notification Status Updated Successfully {result.modified_count}"}), 200
             else:
-                print("Failed to update notification in own servers")
                 return jsonify({"msg": "Something went wrong while updating Notification in own servers"}), 400
         else:
-            print("Failed to update notification into remote servers")
             return jsonify({"msg": "Something went wrong while updating Notification into remote servers"}), 400
     except Exception as e:
-        print(f"Exception occurred: {e}")
         return jsonify({"msg": str(e)}), 500
     finally:
-        print("Closing MongoDB connections")
-        log_entry_event.mongo_dbconnect_close()
-        mpwz_integrated_app.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
 
 
