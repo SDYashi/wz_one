@@ -4,6 +4,7 @@ import datetime
 import time
 import bcrypt
 import ast  
+from dateutil import parser 
 from flask import jsonify, request
 from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
 from flask_pymongo import PyMongo
@@ -12,6 +13,7 @@ from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_forblueprints import MongoCollection
 from shared_api import shared_apiServices_callingforNGB
+from myservices.myserv_update_dbservices import myserv_update_dbservices
 from . import android_api
 
 @android_api.before_request
@@ -852,7 +854,6 @@ def statuswise_notification_count():
         mpwz_notifylist.mongo_dbconnect_close()
 
 
-
 @android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
 def dashboard_action_history():
@@ -860,18 +861,43 @@ def dashboard_action_history():
         mpwz_user_action_history = MongoCollection("mpwz_user_action_history")
         log_entry_event = myserv_update_users_logs()
         username = get_jwt_identity()
+
         if request.method == 'GET':          
-                query = {
-                        "$or": [
-                            {"notify_to_id": username},
-                            {"notify_from_id": username}
-                        ]
-                }
-                # sort_query = [("action_datetime", -1)]
-                limit = 5
-                action_history_records = mpwz_user_action_history.find(query)
-                if action_history_records:
-                    action_history_records = sorted(action_history_records, key=lambda x: x['action_datetime'], reverse=True)[:limit]
+            query = {
+                "$or": [
+                    {"notify_to_id": username},
+                    {"notify_from_id": username}
+                ]
+            }
+            limit = 5
+            action_history_records = list(mpwz_user_action_history.find(query))  # Convert cursor to list
+            
+            if action_history_records:
+                # Convert action_datetime to datetime objects if they are strings
+                for record in action_history_records:
+                    if isinstance(record['action_datetime'], str):
+                        try:
+                            record['action_datetime'] = parser.parse(record['action_datetime'])  # Use dateutil.parser
+                        except ValueError as ve:
+                            # Handle the case where the string cannot be converted
+                            print(f"Error converting action_datetime for record {record}: {ve}")
+                            record['action_datetime'] = None  # Set to None if conversion fails
+
+                # Filter out records with None action_datetime
+                action_history_records = [record for record in action_history_records if record['action_datetime'] is not None]
+
+                # Convert all datetime objects to UTC (offset-aware)
+                for record in action_history_records:
+                    if record['action_datetime'] is not None:
+                        # If naive, make it aware by localizing to UTC
+                        if record['action_datetime'].tzinfo is None:
+                            record['action_datetime'] = record['action_datetime'].replace(tzinfo=datetime.timezone.utc)
+                        else:
+                            # If already aware, ensure it's in UTC timezone
+                            record['action_datetime'] = record['action_datetime'].astimezone(datetime.timezone.utc)
+
+                # Now sort the records
+                action_history_records = sorted(action_history_records, key=lambda x: x['action_datetime'], reverse=True)[:limit]
 
                 if action_history_records:
                     response_statuses = []
@@ -883,23 +909,25 @@ def dashboard_action_history():
                             response_statuses.append(status_response)
                         else:
                             raise ValueError(f"Expected a dictionary, but got: {type(status)}")
-                    
+
                     # Log entry in table 
                     response_data = {
-                            "msg": f"History loaded successfully for {username}",
-                            "current_api": request.full_path,
-                            "client_ip": request.remote_addr,
-                            "response_at": datetime.datetime.now().isoformat()
+                        "msg": f"History loaded successfully for {username}",
+                        "current_api": request.full_path,
+                        "client_ip": request.remote_addr,
+                        "response_at": datetime.datetime.now(datetime.timezone.utc).isoformat()  # Use UTC for response time
                     } 
                     log_entry_event.log_api_call(response_data) 
                     return jsonify(response_statuses), 200
                 else:
                     return jsonify({"msg": "No action history found."}), 404            
     except Exception as e:
-        return jsonify({"msg": f"An error occurred while processing the request. Please try again later.{str(e)}"}), 500
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_user_action_history.mongo_dbconnect_close()
+        return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_user_action_history.mongo_dbconnect_close()
+
+
 
 @android_api.route('/statuswise-notify-list', methods=['GET'])
 @jwt_required()
@@ -1055,4 +1083,40 @@ def update_notify_status_inhouse_app():
         mpwz_integrated_app.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
 
+@android_api.route('/dashboard/api-logs-hits-count', methods=['GET'])
+def get_api_hits_count():
+    try:
+        mpwz_users_api_logs = MongoCollection("mpwz_users_api_logs")
+        hits_count = mpwz_users_api_logs.count_documents({})
+        return jsonify({"total_api_hits": hits_count}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        mpwz_users_api_logs.mongo_dbconnect_close()
 
+@android_api.route('/dashboard-collection-size-status', methods=['GET'])
+def collection_status():    
+    db_service = myserv_update_dbservices()   
+    try:
+        total_rows, total_size_gb, collection_stats = db_service.get_collection_status()   
+        # Return the response as JSON
+        return jsonify({
+            "total_rows": total_rows,
+            "total_size_gb": total_size_gb,
+            "collection_stats": collection_stats
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db_service.mongo_dbconnect_close()  # Ensure this method exists
+
+@android_api.route('/dashboard-active-users-count', methods=['GET'])
+def get_user_count():    
+    mpwz_integration_users = MongoCollection("mpwz_integration_users")
+    try:
+        user_count = mpwz_integration_users.count_documents({})
+        return jsonify({"total_users": user_count}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        mpwz_integration_users.mongo_dbconnect_close()

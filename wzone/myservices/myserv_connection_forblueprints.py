@@ -1,3 +1,6 @@
+from functools import wraps
+
+from flask import jsonify, request
 from  myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
 class MongoCollection:
@@ -207,3 +210,31 @@ class MongoCollection:
         except Exception as e:
             print(f"Error while getting collection stats: {e}")
             return None
+        
+    def get_allowed_ips(self):
+        # Retrieve all allowed IPs from the collection
+        if not self.allowed_ips:
+            print("Allowed IPs not cached, retrieving from database...")
+            self.allowed_ips = {doc['ip'] for doc in self.collection.find({}, {'_id': 0, 'ip': 1})}
+            print(f"Retrieved allowed IPs: {self.allowed_ips}")
+        else:
+            print("Using cached allowed IPs.")
+        return self.allowed_ips
+
+    def ip_required(self, f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            remote_ip = request.remote_addr
+            print(f"Received request from IP: {remote_ip}")
+            allowed_ips = self.get_allowed_ips()
+            print(f"Allowed IPs: {allowed_ips}")
+            
+            if remote_ip not in allowed_ips:
+                print("Access denied: IP not in allowed list")
+                return jsonify({"error": "Access denied, Your are not allowed"}), 403
+            
+            print("Access granted: IP is in allowed list")
+            return f(*args, **kwargs)
+        
+        return decorated_function
+    

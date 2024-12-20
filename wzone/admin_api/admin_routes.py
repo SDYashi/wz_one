@@ -16,6 +16,7 @@ from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_i
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 
+mpwz_iplist_adminpanel = MongoCollection("mpwz_iplist_adminpanel")
 @admin_api.before_request
 def before_request():
     request.start_time = time.time() 
@@ -118,6 +119,7 @@ def change_password_byadmin_forany():
          mpwz_users.mongo_dbconnect_close()
 
 @admin_api.route('/notify-integrated-app', methods=['POST'])
+@mpwz_iplist_adminpanel.ip_required
 @jwt_required()
 def post_integrated_app():
     try:
@@ -391,4 +393,4 @@ def insert_data_addip_admin():
     if collection.find_one({"ip_address": data['ip_address']}):
         return jsonify({"error": "IP address already exists"}), 400
     result = collection.insert_one(data)
-    return jsonify({"inserted_id": str(result.inserted_id)}), 200       
+    return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200       

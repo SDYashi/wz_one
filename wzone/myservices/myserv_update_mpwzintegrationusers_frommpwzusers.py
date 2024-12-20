@@ -54,7 +54,8 @@ class myserv_update_mpwzintegrationusers_frommpwzusers:
         
         # Return response
         if new_users:
-            return {"new_users": new_users}
+            return {"new_users": new_users,
+                    "msg": f"{insert_records} new users created successfully."}
         else:
             return {"message": "No new user found for id creation."}
 
