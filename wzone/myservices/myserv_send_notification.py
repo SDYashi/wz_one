@@ -11,18 +11,14 @@ class EmailSender:
         self.server = None
 
     def sendemail_connect(self):
-        try:
+        if self.server is None:
             self.server = smtplib.SMTP(self.smtp_server, self.port)
             self.server.starttls()  
             self.server.login(self.username, self.password)
-            print("Connected to the SMTP server.")
-        except Exception as e:
-            print(f"Failed to connect to the SMTP server: {e}")
 
     def send_email(self, subject, body, to_email):
         if self.server is None:
-            print("You need to connect to the server first.")
-            return
+            self.sendemail_connect()
 
         msg = MIMEMultipart()
         msg['From'] = self.username
@@ -33,14 +29,13 @@ class EmailSender:
 
         try:
             self.server.sendmail(self.username, to_email, msg.as_string())
-            print(f"Email sent to {to_email}.")
         except Exception as e:
-            print(f"Failed to send email: {e}")
+            self.sendemail_disconnect()
+            raise
 
     def sendemail_disconnect(self):
         if self.server:
             self.server.quit()
-            print("Disconnected from the SMTP server.")
 
 
 # if __name__ == "__main__":

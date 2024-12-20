@@ -2,7 +2,9 @@
 import datetime
 import time
 import bcrypt
-from flask import jsonify, request
+from flask import Flask, request, jsonify
+from functools import wraps
+from pymongo import MongoClient
 from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
 from flask_pymongo import PyMongo
 from . import admin_api
@@ -15,8 +17,45 @@ from myservices.myserv_generate_secretkey_forapp import SecretKeyManager
 from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
+from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
-mpwz_iplist_adminpanel = MongoCollection("mpwz_iplist_adminpanel")
+# define class for admin api
+class AdminAPI:
+    def __init__(self, collection_name): 
+        self.mongo_db = myserv_connection_mongodb()  
+        self.dbconnect = self.mongo_db.get_connection() 
+        self.collection = self.dbconnect[collection_name]
+        self.allowed_ips = set()  # Cached set of allowed IPs
+
+    def get_allowed_ips(self):
+        """Retrieve all allowed IPs from the collection, caching the result."""
+        if not self.allowed_ips:
+            print("Allowed IPs not cached, retrieving from database...")
+            self.allowed_ips = {doc['ip_address'] for doc in self.collection.find({}, {'_id': 0, 'ip_address': 1})}
+            print(f"Retrieved allowed IPs: {self.allowed_ips}")
+        else:
+            print("Using cached allowed IPs.")
+        return self.allowed_ips
+
+    def ip_required(self, f):
+        """Decorator to restrict access based on IP address."""
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            remote_ip = request.remote_addr
+            print(f"Received request from IP: {remote_ip}")
+            allowed_ips = self.get_allowed_ips()
+            print(f"Allowed IPs: {allowed_ips}")
+
+            if remote_ip not in allowed_ips:
+                print("Access denied: IP not in allowed list")
+                return jsonify({"error": "Access denied, you are not allowed"}), 403
+
+            print("Access granted: IP is in allowed list")
+            return f(*args, **kwargs)
+
+        return decorated_function
+admin_api_validator = AdminAPI(collection_name="mpwz_iplist_adminpanel")
+ 
 @admin_api.before_request
 def before_request():
     request.start_time = time.time() 
@@ -52,6 +91,7 @@ def after_request(response):
 
 #Admin controller api for web users
 @admin_api.route('/shared-call/api/v1/create-integration-users', methods=['POST'])
+@admin_api_validator.ip_required
 @jwt_required()
 def create_integration_users_data():
     try:
@@ -82,44 +122,8 @@ def create_integration_users_data():
          mpwz_integration_users.mongo_dbconnect_close()
          seq_gen.mongo_dbconnect_close()
 
-@admin_api.route('/change-password-byadminuser', methods=['PUT'])
-@jwt_required()
-def change_password_byadmin_forany():
-    try:
-        mpwz_users = MongoCollection("mpwz_users")
-        log_entry_event = myserv_update_users_logs()
-        username = get_jwt_identity()
-        data = request.get_json()
-        # Validate input
-        username_user = data.get("username")
-        new_password_user = data.get("new_password")
-        if not new_password_user:
-            return jsonify({"msg": "New password is required"}), 400
-        # Hash the new password
-        hashed_password = bcrypt.hashpw(new_password_user.encode('utf-8'), bcrypt.gensalt())
-        # Update the password in the database
-        response = mpwz_users.update_one({"username": username_user},  {"password": hashed_password})
-        if response.modified_count == 0:
-            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400        
-        else: 
-            response_data = {
-                "msg": "Password Changed successfully",
-                "BearrToken": username,
-                "current_api": request.full_path,
-                "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now().isoformat()
-            } 
-            log_entry_event.log_api_call(response_data)
-        return jsonify({"msg": "Password changed successfully!"}), 200
-    except Exception as error:
-        return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
-
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_users.mongo_dbconnect_close()
-
 @admin_api.route('/notify-integrated-app', methods=['POST'])
-@mpwz_iplist_adminpanel.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def post_integrated_app():
     try:
@@ -167,8 +171,8 @@ def post_integrated_app():
         mpwz_integrated_app.mongo_dbconnect_close()
         seq_gen.mongo_dbconnect_close()
 
-
 @admin_api.route('/notify-status', methods=['POST'])
+@admin_api_validator.ip_required
 @jwt_required()
 def post_notify_status():
     try:
@@ -214,65 +218,8 @@ def post_notify_status():
          mpwz_notify_status.mongo_dbconnect_close()
          seq_gen.mongo_dbconnect_close()
 
-@admin_api.route('/update_field_type_from_to', methods=['POST'])
-@jwt_required()
-def update_field_type():
-    # Initialize the database updater
-    db_updater = myserv_update_dbproperties() 
-    data = request.get_json()    
-    # Validate input from json data
-    if not data or 'collection_name' not in data or 'field_name' not in data or 'from_property' not in data or 'to_property' not in data:
-        return jsonify({'error': 'Invalid input, please provide collection_name, field_name, from_property, and to_property.'}), 400
-    
-    collection_name = data['collection_name']
-    field_name = data['field_name']
-    from_property = data['from_property']
-    to_property = data['to_property']
-    
-    try:
-        # Call the method to change the field type
-        db_updater.change_field_type(collection_name=collection_name, field_name=field_name, from_property=from_property, to_property=to_property)
-        return jsonify({'msg': 'Field type updated successfully.'}), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@admin_api.route('/update-fields-to-string', methods=['POST'])
-@jwt_required()
-def update_fields_to_string(): 
-    try:        
-        # Initialize the database updater
-        db_updater = myserv_update_dbproperties() () 
-        data = request.get_json()
-        
-        # Ensure that 'collection_name' is provided in the JSON data
-        if 'collection_name' not in data:
-            return jsonify({
-                'status': 'error',
-                'msg': 'Missing "collection_name" in request body.'
-            }), 400
-        
-        collection_name = data['collection_name']
-        
-        # Call the function to update fields in the specified collection
-        db_updater.change_all_fields_to_string(collection_name)
-        
-        return jsonify({
-            'status': 'success',
-            'msg': f'All fields in collection {collection_name} have been updated to strings.'
-        }), 200
-    except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'msg': str(e)
-        }), 500
- 
-@admin_api.route('/update-secret-key', methods=['POST'])
-@jwt_required()
-def update_secret_key_for_app():
-    new_secret_key = SecretKeyManager.update_secret_key()
-    return jsonify({"msg": "Secret key updated successfully.", "new_secret_key": new_secret_key})
-
 @admin_api.route('/insert-userlogininfo-from-mpwzusers', methods=['POST'])
+@admin_api_validator.ip_required
 @jwt_required()
 def update_users():
     user_processor = myserv_update_mpwzintegrationusers_frommpwzusers()
@@ -286,6 +233,7 @@ def update_users():
     return jsonify(response)                    
 
 @admin_api.route('/insert-userinfo-from-powerbi-warehouse', methods=['POST'])
+@admin_api_validator.ip_required
 @jwt_required()
 def sync_databases():
     try:
@@ -316,33 +264,89 @@ def sync_databases():
     except Exception as e:
         print(f"An error occurred while connecting to Power BI warehouse: {e}")
         return jsonify({"msg": f"An error occurred while connecting to Power BI warehouse: {str(e)}"}), 500
-    
-    
+ 
+@admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
+@admin_api_validator.ip_required
+@jwt_required()
+def insert_data_addip_admin():
+    collection = MongoCollection("mpwz_iplist_adminpanel")
+    data = request.json
+    # Validate the incoming data
+    if not data or not all(key in data for key in ['username', 'email', 'phone', 'employee_no', 'ip_address']):
+        return jsonify({"error": "Invalid data"}), 400
+
+    # Check for duplicate username
+    if collection.find_one({"username": data['username']}):
+        return jsonify({"error": "Username already exists"}), 400
+
+    # Check for duplicate IP address
+    if collection.find_one({"ip_address": data['ip_address']}):
+        return jsonify({"error": "IP address already exists"}), 400
+    result = collection.insert_one(data)
+    return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200  
+
+@admin_api.route('/change-password-byadminuser', methods=['PUT'])
+@admin_api_validator.ip_required
+@jwt_required()
+def change_password_byadmin_forany():
+    try:
+        mpwz_users = MongoCollection("mpwz_integration_users")
+        log_entry_event = myserv_update_users_logs()
+        username = get_jwt_identity()
+        data = request.get_json()
+        # Validate input
+        username_user = data.get("username")
+        new_password_user = data.get("new_password")
+        if not new_password_user:
+            return jsonify({"msg": "New password is required"}), 400
+        # Hash the new password
+        hashed_password = bcrypt.hashpw(new_password_user.encode('utf-8'), bcrypt.gensalt())
+        # Update the password in the database
+        response = mpwz_users.update_one({"username": username_user},  {"password": hashed_password})
+        if response.modified_count == 0:
+            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400        
+        else: 
+            response_data = {
+                "msg": "Password Changed successfully",
+                "BearrToken": username,
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": datetime.datetime.now().isoformat()
+            } 
+            log_entry_event.log_api_call(response_data)
+        return jsonify({"msg": "Password changed successfully!"}), 200
+    except Exception as error:
+        return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
+
+    finally : 
+         log_entry_event.mongo_dbconnect_close() 
+         mpwz_users.mongo_dbconnect_close()
+     
 @admin_api.route('/send-email', methods=['POST'])
+@admin_api_validator.ip_required
 @jwt_required()
 def send_email():
     try:
-        email_sender = EmailSender()
-        data = request.json
-        subject = data.get('subject')
-        body = data.get('body')
-        to_email = data.get('to_email')
+        data = request.get_json()
+        if not data:
+            return jsonify({"msg": "Invalid JSON data"}), 400
 
-        if not subject or not body or not to_email:
+        subject, body, to_email = data.get('subject'), data.get('body'), data.get('to_email')
+        if not all([subject, body, to_email]):
             return jsonify({"msg": "Missing required fields"}), 400
 
-    
-            if not email_sender.sendemail_connect():
-                return jsonify({"msg": "Failed to connect to the SMTP server"}), 500
-
-            result = email_sender.send_email(subject, body, to_email)
-            return jsonify({"msg": result})
-    except Exception as e:
-        return jsonify({"msg": str(e)}), 500
-    finally:
+        email_sender = EmailSender()
+        email_sender.sendemail_connect()
+        email_sender.send_email(subject, body, to_email)
         email_sender.sendemail_disconnect()
+        return jsonify({"msg": f"Email sent to {to_email}"}), 200
+    except ConnectionError:
+        return jsonify({"msg": "Failed to connect to the SMTP server"}), 500
+    except Exception as e:
+        return jsonify({"msg": f"An error occurred: {str(e)}"}), 500
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
+@admin_api_validator.ip_required
 @jwt_required()
 def update_work_location():
     try:
@@ -376,21 +380,10 @@ def update_work_location():
         mpwz_integration_users.mongo_dbconnect_close()
         log_entry_event.mongo_dbconnect_close()
 
-@admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
+@admin_api.route('/update-secret-key', methods=['POST'])
+@admin_api_validator.ip_required
 @jwt_required()
-def insert_data_addip_admin():
-    collection = MongoCollection("mpwz_iplist_adminpanel")
-    data = request.json
-    # Validate the incoming data
-    if not data or not all(key in data for key in ['username', 'email', 'phone', 'employee_no', 'ip_address']):
-        return jsonify({"error": "Invalid data"}), 400
+def update_secret_key_for_app():
+    new_secret_key = SecretKeyManager.update_secret_key()
+    return jsonify({"msg": "Secret key updated successfully.", "new_secret_key": new_secret_key})
 
-    # Check for duplicate username
-    if collection.find_one({"username": data['username']}):
-        return jsonify({"error": "Username already exists"}), 400
-
-    # Check for duplicate IP address
-    if collection.find_one({"ip_address": data['ip_address']}):
-        return jsonify({"error": "IP address already exists"}), 400
-    result = collection.insert_one(data)
-    return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200       
