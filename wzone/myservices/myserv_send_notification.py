@@ -6,8 +6,8 @@ class EmailSender:
     def __init__(self):
         self.smtp_server = "smtp.gmail.com" 
         self.port = 587
-        self.username = "deepakmarskole88@gmail.com"  
-        self.password = "mvakoxppzkinfxkb"  
+        self.username = "mpwz.oneapp@gmail.com"  
+        self.password = "nxxgayptypuzfgra"  
         self.server = None
 
     def sendemail_connect(self):
@@ -37,9 +37,3 @@ class EmailSender:
         if self.server:
             self.server.quit()
 
-
-# if __name__ == "__main__":
-#     email_sender = EmailSender()
-#     email_sender.sendemail_connect()
-#     email_sender.send_email("Testing Subject for send email", "This is a test body.", "deepakmarskole88@gmail.com")
-#     email_sender.sendemail_disconnect()

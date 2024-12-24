@@ -93,12 +93,14 @@ def create_notification_from_ngb():
                 "response_at": datetime.datetime.now().isoformat()
             }
             myserv_update_users_logs().log_api_call(response_data)
+            print("Data insertion request completed successfully.")
             return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
         else:
             seq_gen.reset_sequence('mpwz_notifylist_erp')
             return jsonify({"msg": "Failed to insert data from remote server logs"}), 400
     except Exception as errors:
         seq_gen.reset_sequence('mpwz_notifylist_erp')
+        print(f"An error occurred during data insertion: {str(errors)}")
         return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
 
 @integration_api.route('/shared-call/api/v1/erp/post-notifyerp', methods=['POST'])
@@ -146,11 +148,13 @@ def create_notification_from_erp():
                 "response_at": datetime.datetime.now().isoformat()
             }
             myserv_update_users_logs().log_api_call(response_data)
+            print("Request completed successfully.")
             return jsonify({"msg": "Data inserted successfully", "id": str(result.inserted_id)}), 200
         else:
             seq_gen.reset_sequence('mpwz_notifylist')
             return jsonify({"msg": "Failed to insert data from remote server logs"}), 400
     except Exception as errors:
         seq_gen.reset_sequence('mpwz_notifylist')
+        print(f"An error occurred during data insertion: {str(errors)}")
         return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
 

@@ -12,7 +12,6 @@ from myservices.myserv_update_mpwzintegrationusers_frommpwzusers import myserv_u
 from myservices.myserv_update_mpwzusers_frombiserver import myserv_update_mpwzusers_frombiserver
 from myservices.myserv_send_notification import EmailSender
 from myservices.myserv_connection_forblueprints import MongoCollection
-from myservices import myserv_update_dbproperties
 from myservices.myserv_generate_secretkey_forapp import SecretKeyManager
 from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 from myservices.myserv_update_users_logs import myserv_update_users_logs
@@ -20,40 +19,40 @@ from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_mongodb import myserv_connection_mongodb
 
 # define class for admin api
-class AdminAPI:
-    def __init__(self, collection_name): 
-        self.mongo_db = myserv_connection_mongodb()  
-        self.dbconnect = self.mongo_db.get_connection() 
-        self.collection = self.dbconnect[collection_name]
-        self.allowed_ips = set()  # Cached set of allowed IPs
+# class AdminAPI:
+#     def __init__(self, collection_name): 
+#         self.mongo_db = myserv_connection_mongodb()  
+#         self.dbconnect = self.mongo_db.get_connection() 
+#         self.collection = self.dbconnect[collection_name]
+#         self.allowed_ips = set()  # Cached set of allowed IPs
 
-    def get_allowed_ips(self):
-        """Retrieve all allowed IPs from the collection, caching the result."""
-        if not self.allowed_ips:
-            print("Allowed IPs not cached, retrieving from database...")
-            self.allowed_ips = {doc['ip_address'] for doc in self.collection.find({}, {'_id': 0, 'ip_address': 1})}
-            print(f"Retrieved allowed IPs: {self.allowed_ips}")
-        else:
-            print("Using cached allowed IPs.")
-        return self.allowed_ips
+#     def get_allowed_ips(self):
+#         """Retrieve all allowed IPs from the collection, caching the result."""
+#         if not self.allowed_ips:
+#             print("Allowed IPs not cached, retrieving from database...")
+#             self.allowed_ips = set(self.collection.distinct('ip_address'))
+#             print(f"Retrieved allowed IPs: {self.allowed_ips}")
+#         else:
+#             print("Using cached allowed IPs.")
+#         return self.allowed_ips
 
-    def ip_required(self, f):
-        """Decorator to restrict access based on IP address."""
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            remote_ip = request.remote_addr
-            print(f"Received request from IP: {remote_ip}")
-            allowed_ips = self.get_allowed_ips()
-            print(f"Allowed IPs: {allowed_ips}")
+#     def ip_required(self, f):
+#         """Decorator to restrict access based on IP address."""
+#         @wraps(f)
+#         def decorated_function(*args, **kwargs):
+#             remote_ip = request.remote_addr
+#             print(f"Received request from IP: {remote_ip}")
+#             allowed_ips = self.get_allowed_ips()
+#             print(f"Allowed IPs: {allowed_ips}")
 
-            if remote_ip not in allowed_ips:
-                print("Access denied: IP not in allowed list")
-                return jsonify({"error": "Access denied, you are not allowed"}), 403
+#             if remote_ip not in allowed_ips:
+#                 print("Access denied: IP not in allowed list")
+#                 return jsonify({"error": "Access denied, you are not allowed"}), 403
 
-            print("Access granted: IP is in allowed list")
-            return f(*args, **kwargs)
+#             print("Access granted: IP is in allowed list")
+#             return f(*args, **kwargs)
 
-        return decorated_function
+#         return decorated_function
 # admin_api_validator = AdminAPI(collection_name="mpwz_iplist_adminpanel")
  
 @admin_api.before_request
@@ -111,10 +110,12 @@ def create_integration_users_data():
                                     "response_at": datetime.datetime.now().isoformat()
                         } 
             log_entry_event.log_api_call(response_data)    
+            print(f"Request completed {request.full_path}")
             return jsonify({"msg": "Data inserted successfully"}), 201
         else:
             return jsonify({"msg": "No Data inserted. Something went wrong"}), 500        
     except Exception as e:
+        print(f"Exception occurred: {e}")
         return jsonify({"msg": str(e)}), 400
   
     finally : 
@@ -152,7 +153,6 @@ def post_integrated_app():
 
             result = mpwz_integrated_app.insert_one(app_name_list)
             if result:
-                # Add _id to the response, converting ObjectId to string
                 app_name_list['_id'] = str(result.inserted_id)
                 response_data = {  
                     "msg": "New App integrated successfully",
@@ -161,10 +161,12 @@ def post_integrated_app():
                     "response_at": datetime.datetime.now().isoformat()
                 }
                 log_entry_event.log_api_call(response_data) 
+                print("Request completed successfully for new app integration.")
                 return jsonify(app_name_list), 200
             else:
                 return jsonify({"msg": "Unable to add new app details in the system, try again..."}), 500
     except Exception as e:
+        print(f"Exception occurred: {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. {str(e)}"}), 500
     finally: 
         log_entry_event.mongo_dbconnect_close() 
@@ -207,10 +209,12 @@ def post_notify_status():
                                     "response_at": datetime.datetime.now().isoformat()
                         } 
                 log_entry_event.log_api_call(response_data) 
+                print("Request completed successfully for adding new status.")
                 return jsonify(new_status), 201
             else:
                 return jsonify({"msg": "Error while adding new status into database"}), 500
     except Exception as e:
+        print(f"Exception occurred: {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
  
     finally : 
@@ -225,6 +229,7 @@ def update_users():
     user_processor = myserv_update_mpwzintegrationusers_frommpwzusers()
     try:
         response = user_processor.process_users()
+        print("Request completed successfully for updating users.")
     except Exception as e:
         print(f"An error occurred while fetching data from mpwz_users tables: {str(e)}")
         return jsonify({"msg": "An error occurred while processing users."}), 500
@@ -256,8 +261,10 @@ def sync_databases():
   
         try:
             service.sync_databases()
+            print("Request completed successfully for syncing databases.")
             return jsonify({"msg": "Records updated successfully into mpwz_users table from Power BI warehouse"}), 200
         except Exception as e:
+            print(f"An error occurred while processing users: {str(e)}")
             return jsonify({"msg": f"An error occurred while processing users: {str(e)}"}), 500
         finally:
             service.close_connections()
@@ -282,8 +289,13 @@ def insert_data_addip_admin():
     # Check for duplicate IP address
     if collection.find_one({"ip_address": data['ip_address']}):
         return jsonify({"error": "IP address already exists"}), 400
-    result = collection.insert_one(data)
-    return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200  
+    try:
+        result = collection.insert_one(data)
+        print("Request completed successfully for inserting data into mpwz_iplist_adminpanel.")
+        return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200  
+    except Exception as e:
+        print(f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}")
+        return jsonify({"error": f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}"}), 500
 
 @admin_api.route('/change-password-byadminuser', methods=['PUT'])
 # @admin_api_validator.ip_required
@@ -302,25 +314,26 @@ def change_password_byadmin_forany():
         # Hash the new password
         hashed_password = bcrypt.hashpw(new_password_user.encode('utf-8'), bcrypt.gensalt())
         # Update the password in the database
-        response = mpwz_users.update_one({"username": username_user},  {"password": hashed_password})
+        response = mpwz_users.update_one({"username": username_user}, {"$set": {"password": hashed_password}})
         if response.modified_count == 0:
-            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400        
-        else: 
+            return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400
+        else:
             response_data = {
                 "msg": "Password Changed successfully",
                 "BearrToken": username,
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
                 "response_at": datetime.datetime.now().isoformat()
-            } 
+            }
             log_entry_event.log_api_call(response_data)
+        print("Password change request completed successfully.")
         return jsonify({"msg": "Password changed successfully!"}), 200
     except Exception as error:
+        print(f"An error occurred: {str(error)}")
         return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
-
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_users.mongo_dbconnect_close()
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_users.mongo_dbconnect_close()
      
 @admin_api.route('/send-email', methods=['POST'])
 # @admin_api_validator.ip_required
@@ -339,11 +352,15 @@ def send_email():
         email_sender.sendemail_connect()
         email_sender.send_email(subject, body, to_email)
         email_sender.sendemail_disconnect()
+        print("Email sent request completed successfully.")
         return jsonify({"msg": f"Email sent to {to_email}"}), 200
     except ConnectionError:
+        print("An error occurred while connecting to SMTP server.")
         return jsonify({"msg": "Failed to connect to the SMTP server"}), 500
     except Exception as e:
-        return jsonify({"msg": f"An error occurred: {str(e)}"}), 500
+        print(f"An error occurred while sending email: {str(e)}")
+        return jsonify({"msg": f"An error occurred while sending email: {str(e)}"}), 500
+
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
 # @admin_api_validator.ip_required
@@ -370,10 +387,12 @@ def update_work_location():
         if result.modified_count == 0:
             return jsonify({"message": "No changes made"}), 200
 
+        print("Work location code updated request completed successfully.")
         return jsonify({"message": "Work location code updated successfully"}), 200
 
     except Exception as e:
         # Handle any other exceptions
+        print(f"An error occurred while updating work location: {str(e)}")
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
     finally:
@@ -384,6 +403,12 @@ def update_work_location():
 # @admin_api_validator.ip_required
 @jwt_required()
 def update_secret_key_for_app():
-    new_secret_key = SecretKeyManager.update_secret_key()
-    return jsonify({"msg": "Secret key updated successfully.", "new_secret_key": new_secret_key})
+    try:
+        new_secret_key = SecretKeyManager.update_secret_key()
+        print("Secret key updated request completed successfully.")
+        return jsonify({"msg": "Secret key updated successfully.", "new_secret_key": new_secret_key})
+    except Exception as e:
+        print(f"An error occurred while updating secret key: {str(e)}")
+        return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
+
 

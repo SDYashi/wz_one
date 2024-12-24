@@ -15,19 +15,13 @@ from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from admin_api import admin_api
 from android_api import android_api
 from integration_api import integration_api
+from myservices.myserv_varriable_list import myserv_varriable_list
 
 #register app with flask
 app = Flask(__name__)
-
-# cross origin allow for applications
 CORS(app, resources={r"/*": {"origins": "*"}})
-
-# # jwt token configuration
-# # app.config['JWT_SECRET_KEY'] = os.getenv('SECRET_KEY')
-app.config['JWT_SECRET_KEY'] ='8ff09627ca698e84a587ccd3ae005f625ece33b3c999062e62dbf6e70c722323'  
+app.config['JWT_SECRET_KEY'] =myserv_varriable_list.JWT_SECRET_KEY
 jwt = JWTManager(app)
-
-app.config.from_object(Config)
 app.register_blueprint(admin_api, url_prefix='/admin')
 app.register_blueprint(android_api, url_prefix='/android')
 app.register_blueprint(integration_api, url_prefix='/integration')

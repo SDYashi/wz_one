@@ -1,10 +1,10 @@
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
-
+from myservices.myserv_varriable_list import myserv_varriable_list
 class myserv_connection_mongodb:
     def __init__(self):
-        self.uri = "mongodb://localhost:27017/"
-        self.db_name = "admin"
+        self.uri = myserv_varriable_list.MONGODB_CONNECTION_URI
+        self.db_name = myserv_varriable_list.MONGODB_DATABASE
         self.client = None
         self.db = None
 

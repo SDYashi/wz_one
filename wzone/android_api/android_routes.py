@@ -14,7 +14,9 @@ from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_forblueprints import MongoCollection
 from shared_api import shared_apiServices_callingforNGB
 from myservices.myserv_update_dbservices import myserv_update_dbservices
+from myservices.myserv_update_actionhistory import myserv_update_actionhistory
 from . import android_api
+from myservices.myserv_varriable_list import myserv_varriable_list
 
 @android_api.before_request
 def before_request():
@@ -49,140 +51,87 @@ def after_request(response):
     finally:
         log_entry_event_api.mongo_dbconnect_close()
 
-@android_api.route('/android-api-status', methods=['GET'])
-def status():
-    return jsonify({"message": "Android API is Working"})
 
 @android_api.route('/login', methods=['POST'])
 def login():
     try:
-        # Initialize MongoCollection and other Class's  
         mpwz_integration_users_collection = MongoCollection("mpwz_integration_users")
         log_entry_event = myserv_update_users_logs()
         data = request.get_json()
-        username = data.get("username") 
-        password = data.get("password")  
-        access_token=''
-        # Retrieve the user from the collection
-        user = mpwz_integration_users_collection.find_one({"username": username}) 
+        username = data.get("username")
+        password = data.get("password")
+        access_token = ''
+        
+        user = mpwz_integration_users_collection.find_one({"username": username})
         if user:
             stored_hashed_password = user['password']
             user_role = user['user_role']
-            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):                
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
                 current_datetime = datetime.datetime.now()
 
-                if user_role=='api_user' :                
-                    token_fromdb = user['token_app'] 
-                    token_expiredon_fromdb = user['token_expiredon']                       
-                    token_expiredon_fromdb = datetime.datetime.fromisoformat(token_expiredon_fromdb)  
-
-                    if token_expiredon_fromdb < current_datetime:                         
-                        print("New Token Issued for integration users only")  
+                if user_role == myserv_varriable_list.API_USER_ROLE:
+                    token_fromdb = user['token_app']
+                    token_expiredon_fromdb = datetime.datetime.fromisoformat(user['token_expiredon'])
+                    
+                    if token_expiredon_fromdb < current_datetime:
                         access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=365))
                         jwt_claims = decode_token(access_token)
-                        expired_on = datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat()
-                        issued_on = datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat() 
                         update_query = {
                             "token_app": access_token,
-                            "token_issuedon": issued_on,
-                            "token_expiredon": expired_on,
+                            "token_issuedon": datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat(),
+                            "token_expiredon": datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat(),
                         }
-                        # Find the document and update it
-                        mpwz_integration_users_collection.update_one(
-                            {"username": username},
-                            {"$set": update_query}
-                        )
-                    else:  # Token already issued so return it
+                        mpwz_integration_users_collection.update_one({"username": username}, update_query)
+                    else:
                         try:
                             jwt_claims = decode_token(token_fromdb)
                             if jwt_claims:
                                 access_token = token_fromdb
-                                # print("Token is valid. Claims:", jwt_claims)
-                                print("Token Issued from database only for integration user")
                         except Exception as e:
-                            return jsonify({"msg": f"Token is not valid Please login again or contact admin for assistance: {str(e)}"}), 401               
-                      
-                elif user_role=='android_user' :                           
-                    app_token_fromdb = user['token_app'] 
-                    app_token_expiredon_fromdb = user['token_expiredon']                       
-                    app_token_expiredon_fromdb = datetime.datetime.fromisoformat(app_token_expiredon_fromdb)  
+                            return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
 
-                    if app_token_expiredon_fromdb < current_datetime:                         
-                        print("New Token Issued for mobile app users only")  
-                        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=1))
+                elif user_role in [myserv_varriable_list.ANDROID_USER_ROLE, myserv_varriable_list.ADMIN_USER_ROLE]:
+                    app_token_fromdb = user['token_app']
+                    app_token_expiredon_fromdb = datetime.datetime.fromisoformat(user['token_expiredon'])
+
+                    if app_token_expiredon_fromdb < current_datetime:
+                        expires_delta = datetime.timedelta(days=1) if user_role == 'android_user' else datetime.timedelta(hours=1)
+                        access_token = create_access_token(identity=username, expires_delta=expires_delta)
                         jwt_claims = decode_token(access_token)
-                        expired_on = datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat()
-                        issued_on = datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat() 
                         update_query = {
                             "token_app": access_token,
-                            "token_issuedon": issued_on,
-                            "token_expiredon": expired_on,
+                            "token_issuedon": datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat(),
+                            "token_expiredon": datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat(),
                         }
-                        # Find the document and update it
-                        mpwz_integration_users_collection.update_one(
-                            {"username": username},
-                            {"$set": update_query}
-                        )
-                    else:  # Token already issued so return it
+                        mpwz_integration_users_collection.update_one({"username": username}, update_query)
+                    else:
                         try:
                             jwt_claims = decode_token(app_token_fromdb)
                             if jwt_claims:
                                 access_token = app_token_fromdb
-                                # print("Token is valid. Claims:", jwt_claims)
-                                print("Token Issued from database only for mobile app user")
                         except Exception as e:
-                            return jsonify({"msg": f"Token is not valid Please login again or contact admin for assistance: {str(e)}"}), 401 
-                        
-                        response_data = {"request_by":username,"message": "Token Issued successfully for Login"}
-                        log_entry_event.log_api_call(response_data)             
-                      
-                elif user_role=='admin_user' :                               
-                    app_token_fromdb = user['token_app'] 
-                    app_token_expiredon_fromdb = user['token_expiredon']                       
-                    app_token_expiredon_fromdb = datetime.datetime.fromisoformat(app_token_expiredon_fromdb)  
+                            return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
 
-                    if app_token_expiredon_fromdb < current_datetime:                         
-                        print("New Token Issued for mobile app users only")  
-                        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(hours=1))
-                        jwt_claims = decode_token(access_token)
-                        expired_on = datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat()
-                        issued_on = datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat() 
-                        update_query = {
-                            "token_app": access_token,
-                            "token_issuedon": issued_on,
-                            "token_expiredon": expired_on,
-                        }
-                        # Find the document and update it
-                        mpwz_integration_users_collection.update_one(
-                            {"username": username},
-                            {"$set": update_query}
-                        )
-                    else:  # Token already issued so return it
-                        try:
-                            jwt_claims = decode_token(app_token_fromdb)
-                            if jwt_claims:
-                                access_token = app_token_fromdb
-                                # print("Token is valid. Claims:", jwt_claims)
-                                print("Token Issued from database only for mobile app user")
-                        except Exception as e:
-                            return jsonify({"msg": f"Token is not valid Please login again or contact admin for assistance: {str(e)}"}), 401 
-                        
-                        response_data = {"request_by":username,"message": "Token Issued successfully for Login"}
-                        log_entry_event.log_api_call(response_data)
+                    response_data = {"request_by": username, "message": "Token Issued successfully for Login"}
+                    log_entry_event.log_api_call(response_data)
+
                 else:
                     return jsonify({"msg": "Invalid user_role authentication error"}), 401
-                return jsonify(access_token=access_token), 200            
+
+                response = jsonify(access_token=access_token)
+                print(f"Request completed successfully: {response_data}")
+                return response, 200
             else:
                 return jsonify({"msg": "Invalid username or password"}), 401
         else:
-            return jsonify({"msg": "Invalid username or password"}), 401             
+            return jsonify({"msg": "Invalid username or password"}), 401
 
     except Exception as error:
         return jsonify({"msg": "An error occurred while processing your request", "error": str(error)}), 500
-    
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_integration_users_collection.mongo_dbconnect_close()
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_integration_users_collection.mongo_dbconnect_close()
     
 @android_api.route('/changepassword', methods=['PUT'])
 @jwt_required()
@@ -199,7 +148,7 @@ def change_password():
         # Hash the new password
         hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
-        mpwz_integration_users.update_one({"username": username}, {"$set": {"password": hashed_password}})
+        mpwz_integration_users.update_one({"username": username}, {"password": hashed_password})
 
         response_data = {
             "msg": f"Password Changed successfully for {username}",
@@ -208,8 +157,10 @@ def change_password():
             "response_at": datetime.datetime.now().isoformat()
         } 
         log_entry_event.log_api_call(response_data)
+        print(f"Request completed successfully: {response_data}")
         return jsonify({"msg": "Password changed successfully!"}), 200
     except Exception as error:
+        print(f"Request failed with error: {str(error)}")
         return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
     
     finally : 
@@ -240,11 +191,13 @@ def view_profile():
                 "response_at": datetime.datetime.now().isoformat()
             }
             log_entry_event.log_api_call(response_data)
+            print(f"Request completed successfully: {response_data}")
             return jsonify(user), 200
         else:
             return jsonify({"msg": "User not found in records"}), 404
 
     except Exception as e:
+        print(f"Request failed with error: {str(e)}")
         return jsonify({"msg": f"An error occurred while retrieving the user profile. error. {str(e)}"}), 500
     
     finally : 
@@ -273,15 +226,18 @@ def get_notify_status():
                     "response_at": datetime.datetime.now().isoformat()
                 } 
                 log_entry_event.log_api_call(response_data)
+            print("Request completed successfully.")
             return jsonify(response_statuses), 200
         else:
+            print("No button_name added by mpwz admin.")
             return jsonify({"statuses": "No button_name added by mpwz admin"}), 404
     except Exception as e:
+        print(f"An error occurred while processing the request: {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
     
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_notify_status.mongo_dbconnect_close()   
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_notify_status.mongo_dbconnect_close()
 
 @android_api.route('/notify-integrated-app', methods=['GET'])
 @jwt_required()
@@ -305,11 +261,14 @@ def get_integrated_app_list():
                     "response_at": datetime.datetime.now().isoformat()
                 }                   
                 log_entry_event.log_api_call(response_data)
+            print("Request completed successfully.")
             return jsonify(response_statuses), 200
         else:
+            print("No apps added by mpwz admin.")
             return jsonify({"msg": "No apps added by mpwz admin"}), 404
 
     except Exception as e:
+        print(f"An error occurred while processing the request: {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. errors. {str(e)}"}), 500
     
     finally : 
@@ -389,10 +348,12 @@ def my_request_notification_count():
         }
         log_entry_event.log_api_call(log_data)
 
+        print("Request completed successfully")
         # Return the response data
         return jsonify(response_data), 200
 
     except Exception as e:
+        print(f"Request failed with error: {str(e)}")
         # Log error for debugging
         print(f"Error occurred: {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
@@ -400,7 +361,6 @@ def my_request_notification_count():
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
-
 
 @android_api.route('/my-request-notify-list', methods=['GET'])
 @jwt_required()
@@ -417,47 +377,50 @@ def my_request_notification_list():
         app_exists = mpwz_integrated_app.find_one({"app_name": application_type})
         if not app_exists:
             return jsonify({"msg": "application type does not exist."}), 400  
-        response_data=[]
         
+        response_data = []
         query = {
             'app_source': application_type,  
             'notify_from_id': username,
-            'notify_status':notification_status
+            'notify_status': notification_status
         }
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
-        # unique_button_names = mongo.db.mpwz_buttons.distinct('button_name')
 
         for notification in notifications:
             notification_copy = notification.copy()  
             notification_copy.pop('_id', None) 
-            # notification_copy['buttons'] = unique_button_names  
             response_data.append(notification_copy)
+        
         # Log the response statuses
         if notifications:
             response_statuses = []
             for notification in response_data:
-                    # Creating new dictionary to remove _id from response
-                    status_response = {key: value for key, value in notification.items() if key != '_id'}
-                    response_statuses.append(status_response)
-                            # Log entry in table 
-                    response_data = {
-                                "msg": f"my request list loaded successfully for {username}",
-                                "current_api": request.full_path,
-                                "client_ip": request.remote_addr,
-                                "response_at": datetime.datetime.now().isoformat()
-                    }                   
-                    log_entry_event.log_api_call(response_data)                
+                status_response = {key: value for key, value in notification.items() if key != '_id'}
+                response_statuses.append(status_response)
+                
+                # Log entry in table 
+                response_data = {
+                    "msg": f"my request list loaded successfully for {username}",
+                    "current_api": request.full_path,
+                    "client_ip": request.remote_addr,
+                    "response_at": datetime.datetime.now().isoformat()
+                }                   
+                log_entry_event.log_api_call(response_data)                
+            
+            print("Request completed successfully")
             return jsonify(response_statuses), 200             
         else:
+            print(f"No pending notifications found for {username}.")
             return jsonify({"msg": f"No pending notifications found for {username}."}), 400
     except Exception as e:
+        print(f"An error occurred while processing your request: {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500   
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_notifylist.mongo_dbconnect_close() 
-         mpwz_integrated_app.mongo_dbconnect_close() 
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_notifylist.mongo_dbconnect_close() 
+        mpwz_integrated_app.mongo_dbconnect_close()
    
 @android_api.route('/pending-notify-count', methods=['GET'])
 @jwt_required()
@@ -532,6 +495,7 @@ def pending_notification_count():
         }
         log_entry_event.log_api_call(log_data)
 
+        print("Request completed successfully")
         # Return the response data
         return jsonify(response_data), 200
 
@@ -598,8 +562,10 @@ def pending_notification_list():
      
         else:
             return jsonify({"msg": "No pending notifications found."}), 400
+        print("Request completed successfully")
         return jsonify(response_statuses), 200
     except Exception as e:
+        print(f"An error occurred while processing your request: {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
     finally : 
          log_entry_event.mongo_dbconnect_close() 
@@ -607,7 +573,7 @@ def pending_notification_list():
          mpwz_integrated_app.mongo_dbconnect_close() 
          mpwz_buttons.mongo_dbconnect_close() 
   
-@android_api.route('/action-history', methods=['GET', 'POST'])
+@android_api.route('/action-history', methods=['GET'])
 @jwt_required()
 def action_history():
     try:
@@ -616,8 +582,8 @@ def action_history():
         seq_gen = myserv_generate_mpwz_id_forrecords()
         username = get_jwt_identity()
         application_type = request.args.get('application_type')
-        if request.method == 'GET':
-            if application_type:
+        # if request.method == 'GET':
+        if application_type:
                 action_history_records = list(mpwz_user_action_history.find(
                     {
                         "$and": [
@@ -647,53 +613,16 @@ def action_history():
                         }  
                         log_entry_event.log_api_call(response_data)
 
+                    print("Request completed successfully")
                     return jsonify(response_statuses), 200
                 else:
+                    print("No action history found.")
                     return jsonify({"msg": "No action history found."}), 404
-            else:
-                return jsonify({"msg": "Application is not integrated with us, please contact admin"}), 400
-
-        elif request.method == 'POST':
-            data = request.json
-            if application_type:
-                required_fields = [
-                    "action_datetime", "app_id", "notify_details",
-                    "notify_from_id", "notify_from_name",
-                    "notify_refsys_id", "notify_remark",
-                    "notify_to_id", "notify_to_name", "mpwz_id"
-                ]
-
-                if not all(field in data for field in required_fields):
-                    return jsonify({"msg": "Missing required fields"}), 400
-                else:        
-                    existing_record = mpwz_user_action_history.find_one({"notify_refsys_id": data["notify_refsys_id"]})
-                    if existing_record:      
-                        return jsonify({"msg": "Records with notify_refsys_id already existed in database."}), 400
-                    else: 
-                        mpwz_id_actionhistory = seq_gen.get_next_sequence('mpwz_user_action_history')
-                        data['sequence_no'] = str(data['mpwz_id'])
-                        data['mpwz_id'] = str(mpwz_id_actionhistory)
-                        data['notify_from_id'] = username
-                        data['action_by'] = username
-                        data['response_at'] = datetime.datetime.now().isoformat()
-
-                        response = mpwz_user_action_history.insert_one(data)
-                        if response:
-                            # Log entry in table 
-                            response_data = {
-                                "msg": f"Action History Updated successfully for {username}",
-                                "current_api": request.full_path,
-                                "client_ip": request.remote_addr,
-                                "response_at": datetime.datetime.now().isoformat()
-                            } 
-                            log_entry_event.log_api_call(response_data)
-
-                            return jsonify({"msg": f"Action history updated successfully, mpwz_id: {mpwz_id_actionhistory}"}), 200
-                        else:
-                            return jsonify({"msg": "Failed to update action history logs"}), 400
-            else:
-                return jsonify({"msg": "Invalid request encountered at server."}), 400
+        else:
+            print("Application is not integrated with us, please contact admin")
+            return jsonify({"msg": "Application is not integrated with us, please contact admin"}), 400
     except Exception as e:
+        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. Please try again later.{str(e)}"}), 500
     
     finally : 
@@ -766,11 +695,11 @@ def total_notification_count():
         }
         log_entry_event.log_api_call(log_entry_data)
 
+        print("Request completed successfully")
         return jsonify(response_data['app_notifications_count']), 200
 
     except Exception as e:
-        # Catch exceptions and provide specific error information
-        print("Error:", e)  # This will output to your console
+        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
 
     finally:
@@ -838,6 +767,7 @@ def statuswise_notification_count():
             }
             log_entry_event.log_api_call(log_entry_data)
 
+            print("Request completed successfully")
             # Return the response with total counts and status counts
             return jsonify({
                 "total_count": response_data['total_count'],
@@ -847,12 +777,12 @@ def statuswise_notification_count():
             return jsonify({"msg": f"No notifications found for the user {username}."}), 404
 
     except Exception as e:
+        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
 
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
-
 
 @android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
@@ -875,29 +805,29 @@ def dashboard_action_history():
             if action_history_records:
                 # Convert action_datetime to datetime objects if they are strings
                 for record in action_history_records:
-                    if isinstance(record['action_datetime'], str):
+                    if isinstance(record['action_at'], str):
                         try:
-                            record['action_datetime'] = parser.parse(record['action_datetime'])  # Use dateutil.parser
+                            record['action_at'] = parser.parse(record['action_at'])  # Use dateutil.parser
                         except ValueError as ve:
                             # Handle the case where the string cannot be converted
                             print(f"Error converting action_datetime for record {record}: {ve}")
-                            record['action_datetime'] = None  # Set to None if conversion fails
+                            record['action_at'] = None  # Set to None if conversion fails
 
                 # Filter out records with None action_datetime
-                action_history_records = [record for record in action_history_records if record['action_datetime'] is not None]
+                action_history_records = [record for record in action_history_records if record['action_at'] is not None]
 
                 # Convert all datetime objects to UTC (offset-aware)
                 for record in action_history_records:
-                    if record['action_datetime'] is not None:
+                    if record['action_at'] is not None:
                         # If naive, make it aware by localizing to UTC
-                        if record['action_datetime'].tzinfo is None:
-                            record['action_datetime'] = record['action_datetime'].replace(tzinfo=datetime.timezone.utc)
+                        if record['action_at'].tzinfo is None:
+                            record['action_at'] = record['action_at'].replace(tzinfo=datetime.timezone.utc)
                         else:
                             # If already aware, ensure it's in UTC timezone
-                            record['action_datetime'] = record['action_datetime'].astimezone(datetime.timezone.utc)
+                            record['action_at'] = record['action_at'].astimezone(datetime.timezone.utc)
 
                 # Now sort the records
-                action_history_records = sorted(action_history_records, key=lambda x: x['action_datetime'], reverse=True)[:limit]
+                action_history_records = sorted(action_history_records, key=lambda x: x['action_at'], reverse=True)[:limit]
 
                 if action_history_records:
                     response_statuses = []
@@ -918,16 +848,16 @@ def dashboard_action_history():
                         "response_at": datetime.datetime.now(datetime.timezone.utc).isoformat()  # Use UTC for response time
                     } 
                     log_entry_event.log_api_call(response_data) 
+                    print("Request completed successfully")
                     return jsonify(response_statuses), 200
                 else:
                     return jsonify({"msg": "No action history found."}), 404            
     except Exception as e:
+        print(f"An error occurred while processing the request. Exception: {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
     finally: 
         log_entry_event.mongo_dbconnect_close() 
         mpwz_user_action_history.mongo_dbconnect_close()
-
-
 
 @android_api.route('/statuswise-notify-list', methods=['GET'])
 @jwt_required()
@@ -969,8 +899,10 @@ def statuswise_notification_list():
                     log_entry_event.log_api_call(response_data)    
         else:
             return jsonify({"msg": "No notifications found."}), 400
+        print("Request completed successfully")
         return jsonify(response_statuses), 200
     except Exception as e:
+        print(f"An error occurred while processing the request. Exception: {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
     finally : 
          log_entry_event.mongo_dbconnect_close() 
@@ -982,18 +914,16 @@ def update_notify_status_inhouse_app():
     try:
         print("Initializing MongoDB collections and user logs")
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
-        mpwz_integrated_app = MongoCollection("mpwz_integrated_app")
         log_entry_event = myserv_update_users_logs()
-        
+        update_actionhistory = myserv_update_actionhistory()
+
         print("Fetching user identity and request data")
         username = get_jwt_identity()
         data = request.get_json()
         required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover", "notify_to_id"]
 
-        print("Validating required fields in the request data")
-        for field in required_fields:
-            if field not in data:
-                return jsonify({"msg": f"{field} is required"}), 400
+        if not all(field in data for field in required_fields):
+            return jsonify({"msg": "All required fields are not present in the request data"}), 400
 
         notify_to_id = data["notify_to_id"]
         if notify_to_id != username:
@@ -1056,7 +986,7 @@ def update_notify_status_inhouse_app():
             print(f"Update Query: {update_query}")
             print(f"Query: {query}")
 
-            result= mpwz_notifylist.update_one(query,update_query )
+            result = mpwz_notifylist.update_one(query, update_query)
 
             if result.modified_count > 0:
                 print(f"Local database updated successfully with {result.modified_count} modifications")
@@ -1066,21 +996,32 @@ def update_notify_status_inhouse_app():
                     "client_ip": request.remote_addr,
                     "response_at": datetime.datetime.now().isoformat()
                 }
-                log_entry_event.log_api_call(response_data)
+                try:                    
+                    action_history = update_actionhistory.post_actionhistory_request(username, data)
+                    print(f"action_history make entry: {action_history}")
+                    log_entry_event.log_api_call(response_data)
+                    print(f"log_entry_event make entry: {log_entry_event}")
+                except Exception as e:
+                    print(f"Exception occurred while calling update_actionhistory and log_entry_event: {e}")
+                    if "update_actionhistory" in str(e) and "log_entry_event" in str(e):
+                        return jsonify({"msg": "Both update_actionhistory and log_entry_event objects are None."}), 500
+                    elif "update_actionhistory" in str(e):
+                        return jsonify({"msg": "update_actionhistory object is None."}), 500
+                    elif "log_entry_event" in str(e):
+                        return jsonify({"msg": "log_entry_event object is None."}), 500
+                    else:
+                        return jsonify({"msg": str(e)}), 500
+                print(f"Request completed successfully: {response_data}")
                 return jsonify({"msg": f"Notification Status Updated Successfully {result.modified_count}"}), 200
-            else:
-                print("Failed to update notification in own servers")
-                return jsonify({"msg": "Something went wrong while updating Notification in own servers"}), 400
         else:
             print("Failed to update notification into remote servers")
             return jsonify({"msg": "Something went wrong while updating Notification into remote servers"}), 400
     except Exception as e:
-        print(f"Exception occurred: {e}")
+        print(f"Request failed with error: {str(e)}")
         return jsonify({"msg": str(e)}), 500
     finally:
         print("Closing MongoDB connections")
         log_entry_event.mongo_dbconnect_close()
-        mpwz_integrated_app.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
 
 @android_api.route('/dashboard/api-logs-hits-count', methods=['GET'])
@@ -1088,8 +1029,10 @@ def get_api_hits_count():
     try:
         mpwz_users_api_logs = MongoCollection("mpwz_users_api_logs")
         hits_count = mpwz_users_api_logs.count_documents({})
+        print(f"Request completed successfully: total_api_hits = {hits_count}")
         return jsonify({"total_api_hits": hits_count}), 200
     except Exception as e:
+        print(f"Request failed with error: {str(e)}")
         return jsonify({"error": str(e)}), 500
     finally:
         mpwz_users_api_logs.mongo_dbconnect_close()
@@ -1100,12 +1043,14 @@ def collection_status():
     try:
         total_rows, total_size_gb, collection_stats = db_service.get_collection_status()   
         # Return the response as JSON
+        print(f"Request completed successfully: total_rows = {total_rows}, total_size_gb = {total_size_gb}, collection_stats = {collection_stats}")
         return jsonify({
             "total_rows": total_rows,
             "total_size_gb": total_size_gb,
             "collection_stats": collection_stats
         }), 200
     except Exception as e:
+        print(f"Request failed with error: {str(e)}")
         return jsonify({"error": str(e)}), 500
     finally:
         db_service.mongo_dbconnect_close()  # Ensure this method exists
@@ -1115,8 +1060,10 @@ def get_user_count():
     mpwz_integration_users = MongoCollection("mpwz_integration_users")
     try:
         user_count = mpwz_integration_users.count_documents({})
+        print(f"Request completed successfully: total_users = {user_count}")
         return jsonify({"total_users": user_count}), 200
     except Exception as e:
+        print(f"Request failed with error: {str(e)}")
         return jsonify({"error": str(e)}), 500
     finally:
         mpwz_integration_users.mongo_dbconnect_close()
