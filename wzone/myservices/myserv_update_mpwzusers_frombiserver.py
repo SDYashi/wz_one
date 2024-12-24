@@ -18,6 +18,7 @@ class myserv_update_mpwzusers_frombiserver:
         return records
 
     def insert_into_mongo(self, records):
+        self.seq_gen.set_sequence_to_zero('mpwz_users')
         insert_records=1
         for record in records:
             employee_number = record[1]  
