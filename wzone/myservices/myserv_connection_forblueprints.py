@@ -51,13 +51,16 @@ class MongoCollection:
             print(f"Error while finding data: {e}")
             return None
 
-    def find_distinct(self, field):
+    def find_distinct(self, field, filter_criteria=None):
         try:
-            result = self.collection.distinct(field)
+            if filter_criteria is not None:
+                result = self.collection.distinct(field, filter_criteria)
+            else:
+                result = self.collection.distinct(field)
             return result  # Return the raw result
         except Exception as e:
             print(f"Error while finding distinct values: {e}")
-            return None   
+            return None
 
     def update_one(self, query, update_data):
         try:

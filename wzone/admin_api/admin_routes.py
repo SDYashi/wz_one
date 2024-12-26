@@ -185,34 +185,37 @@ def post_notify_status():
         data = request.get_json()
         if 'button_name' not in data:
             return jsonify({"msg": "button_name is required"}), 400 
-        
-        existing_record = mpwz_notify_status.find_one({"button_name": data["button_name"]})
-        if existing_record:      
-            return jsonify({"msg": "Records with button_name already existed in database."}), 400
-        else: 
-            myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')   
-            new_status = {
-                "mpwz_id": myseq_mpwz_id,
-                "button_name": data['button_name'],
-                "created_by": username,
-                "created_on": datetime.datetime.now().isoformat(),
-                "updated_by": "NA",
-                "updated_on": "NA"
-            } 
-            result = mpwz_notify_status.insert_one(new_status)
-            if result: 
-                # Add _id to the response, converting ObjectId to string
-                new_status['_id'] = str(result.inserted_id)
-                response_data = {      "msg": f"New Status Added successfully",
-                                    "current_api": request.full_path,
-                                    "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now().isoformat()
-                        } 
-                log_entry_event.log_api_call(response_data) 
-                print("Request completed successfully for adding new status.")
-                return jsonify(new_status), 201
-            else:
-                return jsonify({"msg": "Error while adding new status into database"}), 500
+        elif'module_name' not in data:
+            return jsonify({"msg": "module_name is required"}), 400 
+        else:        
+            existing_record = mpwz_notify_status.find_one({"button_name": data["button_name"], "module_name": data["module_name"]})
+            if existing_record:      
+                return jsonify({"msg": "Records with button_name already existed in database."}), 400
+            else: 
+                myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')   
+                new_status = {
+                    "mpwz_id": myseq_mpwz_id,
+                    "button_name": data['button_name'],
+                    "module_name": data['module_name'],
+                    "created_by": username,
+                    "created_on": datetime.datetime.now().isoformat(),
+                    "updated_by": "NA",
+                    "updated_on": "NA"
+                } 
+                result = mpwz_notify_status.insert_one(new_status)
+                if result: 
+                    # Add _id to the response, converting ObjectId to string
+                    new_status['_id'] = str(result.inserted_id)
+                    response_data = {   "msg": f"New Status Added successfully",
+                                        "current_api": request.full_path,
+                                        "client_ip": request.remote_addr,
+                                        "response_at": datetime.datetime.now().isoformat()
+                            } 
+                    log_entry_event.log_api_call(response_data) 
+                    print("Request completed successfully for adding new status.")
+                    return jsonify(new_status), 201
+                else:
+                    return jsonify({"msg": "Error while adding new status into database"}), 500
     except Exception as e:
         print(f"Exception occurred: {str(e)}")
         return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500

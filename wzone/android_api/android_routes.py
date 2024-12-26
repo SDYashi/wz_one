@@ -536,6 +536,7 @@ def pending_notification_list():
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
         unique_button_names = mpwz_buttons.find_distinct('button_name')
+        # unique_button_names = mpwz_buttons.find_distinct('button_name',{ 'module_name': app_exists })
 
         for notification in notifications:
             notification_copy = notification.copy()  
@@ -551,15 +552,15 @@ def pending_notification_list():
                     # Creating new dictionary to remove _id from response
                     status_response = {key: value for key, value in notification.items() if key != '_id'}
                     response_statuses.append(status_response)
+         
                         # Log entry in table 
-                    response_data = {
+            response_data = {
                                     "msg": f"pending request list loaded successfully for {username}",
                                     "current_api": request.full_path,
                                     "client_ip": request.remote_addr,
                                     "response_at": datetime.datetime.now().isoformat()
-                    }                     
-                    log_entry_event.log_api_call(response_data)
-     
+            }                     
+            log_entry_event.log_api_call(response_data)
         else:
             return jsonify({"msg": "No pending notifications found."}), 400
         print("Request completed successfully")
