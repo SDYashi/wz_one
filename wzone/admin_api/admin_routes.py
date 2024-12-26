@@ -17,43 +17,44 @@ from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_i
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_mongodb import myserv_connection_mongodb
+from myservices.myserv_varriable_list import myserv_varriable_list
 
 # define class for admin api
-# class AdminAPI:
-#     def __init__(self, collection_name): 
-#         self.mongo_db = myserv_connection_mongodb()  
-#         self.dbconnect = self.mongo_db.get_connection() 
-#         self.collection = self.dbconnect[collection_name]
-#         self.allowed_ips = set()  # Cached set of allowed IPs
+class AdminAPI:
+    def __init__(self, collection_name): 
+        self.mongo_db = myserv_connection_mongodb()  
+        self.dbconnect = self.mongo_db.get_connection() 
+        self.collection = self.dbconnect[collection_name]
+        self.allowed_ips = set()  # Cached set of allowed IPs
 
-#     def get_allowed_ips(self):
-#         """Retrieve all allowed IPs from the collection, caching the result."""
-#         if not self.allowed_ips:
-#             print("Allowed IPs not cached, retrieving from database...")
-#             self.allowed_ips = set(self.collection.distinct('ip_address'))
-#             print(f"Retrieved allowed IPs: {self.allowed_ips}")
-#         else:
-#             print("Using cached allowed IPs.")
-#         return self.allowed_ips
+    def get_allowed_ips(self):
+        """Retrieve all allowed IPs from the collection, caching the result."""
+        if not self.allowed_ips:
+            print("Allowed IPs not cached, retrieving from database...")
+            self.allowed_ips = set(self.collection.distinct('ip_address'))
+            print(f"Retrieved allowed IPs: {self.allowed_ips}")
+        else:
+            print("Using cached allowed IPs.")
+        return self.allowed_ips
 
-#     def ip_required(self, f):
-#         """Decorator to restrict access based on IP address."""
-#         @wraps(f)
-#         def decorated_function(*args, **kwargs):
-#             remote_ip = request.remote_addr
-#             print(f"Received request from IP: {remote_ip}")
-#             allowed_ips = self.get_allowed_ips()
-#             print(f"Allowed IPs: {allowed_ips}")
+    def ip_required(self, f):
+        """Decorator to restrict access based on IP address."""
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            remote_ip = request.remote_addr
+            print(f"Received request from IP: {remote_ip}")
+            allowed_ips = self.get_allowed_ips()
+            print(f"Allowed IPs: {allowed_ips}")
 
-#             if remote_ip not in allowed_ips:
-#                 print("Access denied: IP not in allowed list")
-#                 return jsonify({"error": "Access denied, you are not allowed"}), 403
+            if remote_ip not in allowed_ips:
+                print("Access denied: IP not in allowed list")
+                return jsonify({"error": "Access denied, you are not allowed"}), 403
 
-#             print("Access granted: IP is in allowed list")
-#             return f(*args, **kwargs)
+            print("Access granted: IP is in allowed list")
+            return f(*args, **kwargs)
 
-#         return decorated_function
-# admin_api_validator = AdminAPI(collection_name="mpwz_iplist_adminpanel")
+        return decorated_function
+admin_api_validator = AdminAPI(collection_name="mpwz_iplist_adminpanel")
  
 @admin_api.before_request
 def before_request():
@@ -90,7 +91,7 @@ def after_request(response):
 
 #Admin controller api for web users
 @admin_api.route('/shared-call/api/v1/create-integration-users', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def create_integration_users_data():
     try:
@@ -107,7 +108,7 @@ def create_integration_users_data():
             response_data = {      "msg": f"Integration User Created successfully ",
                                     "current_api": request.full_path,
                                     "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now().isoformat()
+                                    "response_at": datetime.datetime.now()
                         } 
             log_entry_event.log_api_call(response_data)    
             print(f"Request completed {request.full_path}")
@@ -124,7 +125,7 @@ def create_integration_users_data():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-integrated-app', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def post_integrated_app():
     try:
@@ -146,7 +147,7 @@ def post_integrated_app():
                 "mpwz_id": mpwz_id_sequenceno,
                 "app_name": data['app_name'],
                 "created_by": username,
-                "created_on": datetime.datetime.now().isoformat(),
+                "created_on": datetime.datetime.now(),
                 "updated_by": "NA",
                 "updated_on": "NA"
             }
@@ -158,7 +159,7 @@ def post_integrated_app():
                     "msg": "New App integrated successfully",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
-                    "response_at": datetime.datetime.now().isoformat()
+                    "response_at": datetime.datetime.now()
                 }
                 log_entry_event.log_api_call(response_data) 
                 print("Request completed successfully for new app integration.")
@@ -174,7 +175,7 @@ def post_integrated_app():
         seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-status', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def post_notify_status():
     try:
@@ -198,7 +199,7 @@ def post_notify_status():
                     "button_name": data['button_name'],
                     "module_name": data['module_name'],
                     "created_by": username,
-                    "created_on": datetime.datetime.now().isoformat(),
+                    "created_on": datetime.datetime.now(),
                     "updated_by": "NA",
                     "updated_on": "NA"
                 } 
@@ -209,7 +210,7 @@ def post_notify_status():
                     response_data = {   "msg": f"New Status Added successfully",
                                         "current_api": request.full_path,
                                         "client_ip": request.remote_addr,
-                                        "response_at": datetime.datetime.now().isoformat()
+                                        "response_at": datetime.datetime.now()
                             } 
                     log_entry_event.log_api_call(response_data) 
                     print("Request completed successfully for adding new status.")
@@ -226,7 +227,7 @@ def post_notify_status():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/insert-userlogininfo-from-mpwzusers', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def update_users():
     user_processor = myserv_update_mpwzintegrationusers_frommpwzusers()
@@ -241,22 +242,22 @@ def update_users():
     return jsonify(response)                    
 
 @admin_api.route('/insert-userinfo-from-powerbi-warehouse', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def sync_databases():
     try:
         # Configuration for PostgreSQL and MongoDB
         pg_config = {
-            'dbname': 'postgres',
-            'user': 'biro',
-            'password': 'biro',
-            'host': '10.98.0.87',
-            'port': '5432'
+            'dbname': myserv_varriable_list.pg_config_DBNAME,
+            'user': myserv_varriable_list.pg_config_USER,
+            'password': myserv_varriable_list.pg_config_PASSWORD,
+            'host': myserv_varriable_list.pg_config_HOST,
+            'port': myserv_varriable_list.pg_config_PORT
         }
         mongo_config = {
-            'uri': 'mongodb://localhost:27017/',
-            'db': 'admin',
-            'collection': 'mpwz_users'
+            'uri': myserv_varriable_list.mongo_config_URI,
+            'db': myserv_varriable_list.mongo_config_DB,
+            'collection': myserv_varriable_list.mongo_config_COLLECTION
         }
         
         # Create an instance of the service
@@ -276,7 +277,7 @@ def sync_databases():
         return jsonify({"msg": f"An error occurred while connecting to Power BI warehouse: {str(e)}"}), 500
  
 @admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def insert_data_addip_admin():
     collection = MongoCollection("mpwz_iplist_adminpanel")
@@ -301,7 +302,7 @@ def insert_data_addip_admin():
         return jsonify({"error": f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}"}), 500
 
 @admin_api.route('/change-password-byadminuser', methods=['PUT'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def change_password_byadmin_forany():
     try:
@@ -326,7 +327,7 @@ def change_password_byadmin_forany():
                 "BearrToken": username,
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now().isoformat()
+                "response_at": datetime.datetime.now()
             }
             log_entry_event.log_api_call(response_data)
         print("Password change request completed successfully.")
@@ -339,7 +340,7 @@ def change_password_byadmin_forany():
         mpwz_users.mongo_dbconnect_close()
      
 @admin_api.route('/send-email', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def send_email():
     try:
@@ -366,7 +367,7 @@ def send_email():
 
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def update_work_location():
     try:
@@ -403,7 +404,7 @@ def update_work_location():
         log_entry_event.mongo_dbconnect_close()
 
 @admin_api.route('/update-secret-key', methods=['POST'])
-# @admin_api_validator.ip_required
+@admin_api_validator.ip_required
 @jwt_required()
 def update_secret_key_for_app():
     try:

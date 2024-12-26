@@ -16,7 +16,7 @@ class myserv_update_users_api_logs:
             'response_time': response_time,
             'server_load': server_load,
             'success': success,
-            'timestamp': datetime.datetime.now().isoformat()
+            'timestamp': datetime.datetime.now()
         }
         print("qpis log :-",api_call_record)
         result = self.collection.insert_one(api_call_record)

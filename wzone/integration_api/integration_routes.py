@@ -90,7 +90,7 @@ def create_notification_from_ngb():
                 "msg": f"Data inserted successfully from source {application_type}",
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now().isoformat()
+                "response_at": datetime.datetime.now()
             }
             myserv_update_users_logs().log_api_call(response_data)
             print("Data insertion request completed successfully.")
@@ -102,6 +102,10 @@ def create_notification_from_ngb():
         seq_gen.reset_sequence('mpwz_notifylist_erp')
         print(f"An error occurred during data insertion: {str(errors)}")
         return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
+    finally:
+        seq_gen.mongo_dbconnect_close()
+        notifylist_collection.mongo_dbconnect_close()
+        mpwz_integrated_app_collection.mongo_dbconnect_close()
 
 @integration_api.route('/shared-call/api/v1/erp/post-notifyerp', methods=['POST'])
 @jwt_required()
@@ -131,7 +135,7 @@ def create_notification_from_erp():
         'notify_from_id': "34460244",
         'notify_to_name': "Mr. Sunil Kumar Patodi",
         'notify_from_name': "Deepak Marskole",
-        'notify_datetime': "01-01-2024",
+        'notify_datetime': "notify_datetime",
         'app_request_type': app_request_type,
         'notify_description': "NA",
         'notify_comments': "NA",
@@ -145,7 +149,7 @@ def create_notification_from_erp():
                 "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now().isoformat()
+                "response_at": datetime.datetime.now()
             }
             myserv_update_users_logs().log_api_call(response_data)
             print("Request completed successfully.")
@@ -157,4 +161,8 @@ def create_notification_from_erp():
         seq_gen.reset_sequence('mpwz_notifylist')
         print(f"An error occurred during data insertion: {str(errors)}")
         return jsonify({"msg": f"Failed to insert data: {str(errors)}"}), 500
+    finally:
+        notifylist_collection.mongo_dbconnect_close()
+        mpwz_integrated_app_collection.mongo_dbconnect_close()
+        seq_gen.mongo_dbconnect_close()
 
