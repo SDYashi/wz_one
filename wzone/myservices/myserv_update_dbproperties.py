@@ -36,13 +36,13 @@ def main():
     # Example usage of change_field_type
     collection_name = "mpwz_user_action_history"
     field_name = "mpwz_id"
-    from_property = "int"  # e.g., "int"
-    to_property = "string"      # e.g., "string"
+    from_property = "string"  # e.g., "int"
+    to_property = "int"      # e.g., "string"
     
-    # db_updater.change_field_type(collection_name, field_name, from_property, to_property)
+    db_updater.change_field_type(collection_name, field_name, from_property, to_property)
     
     # Example usage of change_all_fields_to_string
-    db_updater.change_all_fields_to_string(collection_name)
+    # db_updater.change_all_fields_to_string(collection_name)
     
     # Close the database connection
     db_updater.mongo_dbconnect_close()
