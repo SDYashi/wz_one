@@ -388,14 +388,33 @@ def my_request_notification_list():
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
-        unique_button_names = mpwz_buttons.find_distinct('button_name')
+        # unique_button_names = mpwz_buttons.find_distinct('button_name')        
+        unique_button_names = []
         # unique_button_names = mpwz_buttons.find_distinct('button_name',{ 'module_name': app_exists })
 
         for notification in notifications:
-            notification_copy = notification.copy()  
-            notification_copy.pop('_id', None) 
-            notification_copy['buttons'] = unique_button_names  
-            response_data.append(notification_copy) 
+            # Create a new dictionary with only the required fields
+            filtered_notification = {
+                "app_request_type": notification.get("app_request_type"),
+                "app_source": notification.get("app_source"),
+                "app_source_appid": notification.get("app_source_appid"),
+                "buttons": unique_button_names,
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_comments": notification.get("notify_comments"),
+                "notify_datetime": notification.get("notify_datetime"),
+                "notify_description": notification.get("notify_description"),
+                "notify_from_id": notification.get("notify_from_id"),
+                "notify_from_name": notification.get("notify_from_name"),
+                "notify_intiatedby": notification.get("notify_intiatedby"),
+                "notify_notes": notification.get("notify_notes"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_refsys_response": notification.get("notify_refsys_response"),
+                "notify_refsys_updatedon": notification.get("notify_refsys_updatedon"),
+                "notify_status": notification.get("notify_status"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "notify_to_name": notification.get("notify_to_name")
+            }
+            response_data.append(filtered_notification)
         
         # Log the response statuses
         if notifications:
@@ -543,10 +562,28 @@ def pending_notification_list():
         # unique_button_names = mpwz_buttons.find_distinct('button_name',{ 'module_name': app_exists })
 
         for notification in notifications:
-            notification_copy = notification.copy()  
-            notification_copy.pop('_id', None) 
-            notification_copy['buttons'] = unique_button_names  
-            response_data.append(notification_copy) 
+            # Create a new dictionary with only the required fields
+            filtered_notification = {
+                "app_request_type": notification.get("app_request_type"),
+                "app_source": notification.get("app_source"),
+                "app_source_appid": notification.get("app_source_appid"),
+                "buttons": unique_button_names,
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_comments": notification.get("notify_comments"),
+                "notify_datetime": notification.get("notify_datetime"),
+                "notify_description": notification.get("notify_description"),
+                "notify_from_id": notification.get("notify_from_id"),
+                "notify_from_name": notification.get("notify_from_name"),
+                "notify_intiatedby": notification.get("notify_intiatedby"),
+                "notify_notes": notification.get("notify_notes"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_refsys_response": notification.get("notify_refsys_response"),
+                "notify_refsys_updatedon": notification.get("notify_refsys_updatedon"),
+                "notify_status": notification.get("notify_status"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "notify_to_name": notification.get("notify_to_name")
+            }
+            response_data.append(filtered_notification)
             
 
         # Log the response statuses

@@ -62,26 +62,29 @@ def create_notification_from_ngb():
         return jsonify({"msg": "Failed to generate sequence number"}), 500
 
     common_data = {
-        'mpwz_id': mpwz_id_sequenceno,
         'app_source': "ngb",
         'app_source_appid': mpwz_id_sequenceno,
-        'notify_status': "PENDING",
-        'notify_refsys_id': mpwz_id_sequenceno,
-        'notify_to_id': "91360238",
-        'notify_from_id': "34460244",
-        'notify_to_name': "Mr. Sunil Kumar Patodi",
-        'notify_from_name': "Deepak Marskole",
+        'mpwz_id': mpwz_id_sequenceno,
+        'notify_comments': "NA",
         'notify_datetime': "01-01-2024",
         'notify_description': "NA",
-        'notify_comments': "NA",
+        'notify_from_id': "34460244",
+        'notify_from_name': "Deepak Marskole",
+        'notify_intiatedby': "34460244",
         'notify_notes': "NA",
+        'notify_refsys_id': mpwz_id_sequenceno,
+        "notify_refsys_response": "NA",
+        "notify_refsys_updatedon": "NA",
+        'notify_status': "PENDING",
+        'notify_to_id': "91360238",
+        'notify_to_name': "Mr. Sunil Kumar Patodi",
     }
 
     if app_request_type in ["CC4", "CCB"]:
         data.update(common_data)
         data['app_request_type'] = app_request_type
-    else:
-        return jsonify({"msg": f"Invalid app request type: {app_request_type}"}), 400
+    # else:
+    #     return jsonify({"msg": f"Invalid app request type: {app_request_type}"}), 400
 
     try:
         result = notifylist_collection.insert_one(data)
@@ -123,24 +126,33 @@ def create_notification_from_erp():
     seq_gen = myserv_generate_mpwz_id_forrecords()
     mpwz_id_sequenceno = seq_gen.get_next_sequence('mpwz_notifylist')
     if not mpwz_id_sequenceno:
+        
         return jsonify({"msg": "Failed to generate sequence number"}), 500
 
-    data.update({
-        'mpwz_id': mpwz_id_sequenceno,
+    common_data = {
         'app_source': "erp",
         'app_source_appid': mpwz_id_sequenceno,
-        'notify_status': "PENDING",
-        'notify_refsys_id': mpwz_id_sequenceno,
-        'notify_to_id': "91360238",
-        'notify_from_id': "34460244",
-        'notify_to_name': "Mr. Sunil Kumar Patodi",
-        'notify_from_name': "Deepak Marskole",
-        'notify_datetime': "notify_datetime",
-        'app_request_type': app_request_type,
-        'notify_description': "NA",
+        'mpwz_id': mpwz_id_sequenceno,
         'notify_comments': "NA",
-        'notify_notes': "NA"
-    })
+        'notify_datetime': "01-01-2024",
+        'notify_description': "NA",
+        'notify_from_id': "34460244",
+        'notify_from_name': "Deepak Marskole",
+        'notify_intiatedby': "34460244",
+        'notify_notes': "NA",
+        'notify_refsys_id': mpwz_id_sequenceno,
+        "notify_refsys_response": "NA",
+        "notify_refsys_updatedon": "NA",
+        'notify_status': "PENDING",
+        'notify_to_id': "91360238",
+        'notify_to_name': "Mr. Sunil Kumar Patodi",
+    }
+
+    if app_request_type in ["LEAVE", "PROJECT"]:
+        data.update(common_data)
+        data['app_request_type'] = app_request_type
+    # else:
+    #     return jsonify({"msg": f"Invalid app request type: {app_request_type}"}), 400
 
     try:
         result = notifylist_collection.insert_one(data)
