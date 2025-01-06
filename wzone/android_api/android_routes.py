@@ -367,6 +367,7 @@ def my_request_notification_count():
 def my_request_notification_list():
     try:
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
+        mpwz_buttons = MongoCollection("mpwz_buttons")
         mpwz_integrated_app = MongoCollection("mpwz_integrated_app")
         log_entry_event = myserv_update_users_logs()
         username = get_jwt_identity()
@@ -387,11 +388,14 @@ def my_request_notification_list():
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
+        unique_button_names = mpwz_buttons.find_distinct('button_name')
+        # unique_button_names = mpwz_buttons.find_distinct('button_name',{ 'module_name': app_exists })
 
         for notification in notifications:
             notification_copy = notification.copy()  
             notification_copy.pop('_id', None) 
-            response_data.append(notification_copy)
+            notification_copy['buttons'] = unique_button_names  
+            response_data.append(notification_copy) 
         
         # Log the response statuses
         if notifications:
@@ -549,7 +553,6 @@ def pending_notification_list():
         if response_data:
             response_statuses = []
             for notification in response_data:
-                    # Creating new dictionary to remove _id from response
                     status_response = {key: value for key, value in notification.items() if key != '_id'}
                     response_statuses.append(status_response)
          
@@ -881,7 +884,33 @@ def statuswise_notification_list():
             notification_copy = notification.copy()  
             notification_copy.pop('_id', None) 
             response_data.append(notification_copy) 
-            
+
+        
+        # Define the fields to include in the response
+        fields_to_include = [
+            "app_request_type",
+            "app_source",
+            "app_source_appid",
+            "mpwz_id",
+            "notify_comments",
+            "notify_datetime",
+            "notify_description",
+            "notify_from_id",
+            "notify_from_name",
+            "notify_intiatedby",
+            "notify_notes",
+            "notify_refsys_id",
+            "notify_refsys_response",
+            "notify_refsys_updatedon",
+            "notify_status",
+            "notify_to_id",
+            "notify_to_name"
+        ]
+
+        for notification in notifications:
+            # Create a new dictionary with only the specified fields
+            notification_response = {field: notification.get(field) for field in fields_to_include}
+            response_data.append(notification_response)    
 
         # Log the response statuses
         if response_data:
@@ -1025,7 +1054,7 @@ def update_notify_status_inhouse_app():
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
 
-@android_api.route('/dashboard/api-logs-hits-count', methods=['GET'])
+@android_api.route('/dashboard-api-logs-hits-count', methods=['GET'])
 def get_api_hits_count():
     try:
         mpwz_users_api_logs = MongoCollection("mpwz_users_api_logs")
