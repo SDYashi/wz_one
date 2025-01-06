@@ -51,7 +51,6 @@ def after_request(response):
     finally:
         log_entry_event_api.mongo_dbconnect_close()
 
-
 @android_api.route('/login', methods=['POST'])
 def login():
     try:
@@ -67,7 +66,7 @@ def login():
             stored_hashed_password = user['password']
             user_role = user['user_role']
             if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
-                current_datetime = datetime.datetime.now()
+                current_datetime = str(datetime.datetime.now())
 
                 if user_role == myserv_varriable_list.API_USER_ROLE:
                     token_fromdb = user['token_app']
@@ -154,7 +153,7 @@ def change_password():
             "msg": f"Password Changed successfully for {username}",
             "current_api": request.full_path,
             "client_ip": request.remote_addr,
-            "response_at": datetime.datetime.now()
+            "response_at": str(datetime.datetime.now())
         } 
         log_entry_event.log_api_call(response_data)
         print(f"Request completed successfully: {response_data}")
@@ -188,7 +187,7 @@ def view_profile():
                 "msg": f"User Profile loaded successfully for {username}",
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now()
+                "response_at": str(datetime.datetime.now())
             }
             log_entry_event.log_api_call(response_data)
             print(f"Request completed successfully: {response_data}")
@@ -223,7 +222,7 @@ def get_notify_status():
                     "msg": f"notification status loaded successfully for {username}",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
-                    "response_at": datetime.datetime.now()
+                    "response_at": str(datetime.datetime.now())
                 } 
                 log_entry_event.log_api_call(response_data)
             print("Request completed successfully.")
@@ -258,7 +257,7 @@ def get_integrated_app_list():
                     "msg": f"Integrated App List loaded successfully for {username}",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
-                    "response_at": datetime.datetime.now()
+                    "response_at": str(datetime.datetime.now())
                 }                   
                 log_entry_event.log_api_call(response_data)
             print("Request completed successfully.")
@@ -316,7 +315,7 @@ def my_request_notification_count():
         notification_counts = list(mpwz_notifylist.aggregate(pipeline))
 
         # Log aggregation result
-        current_time = datetime.datetime.now()
+        current_time = str(datetime.datetime.now())
         print(f"[{current_time}] Aggregation Result: {notification_counts}")
 
         # Process aggregation results
@@ -344,7 +343,7 @@ def my_request_notification_count():
             "msg": f"My request notification count loaded successfully for {username}",
             "current_api": request.full_path,
             "client_ip": request.remote_addr,
-            "response_at": datetime.datetime.now()
+            "response_at": str(datetime.datetime.now())
         }
         log_entry_event.log_api_call(log_data)
 
@@ -388,9 +387,8 @@ def my_request_notification_list():
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
-        # unique_button_names = mpwz_buttons.find_distinct('button_name')        
-        unique_button_names = []
-        # unique_button_names = mpwz_buttons.find_distinct('button_name',{ 'module_name': app_exists })
+        # Query the collection based on app_source
+        unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": application_type})
 
         for notification in notifications:
             # Create a new dictionary with only the required fields
@@ -428,7 +426,7 @@ def my_request_notification_list():
                     "msg": f"my request list loaded successfully for {username}",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
-                    "response_at": datetime.datetime.now()
+                    "response_at": str(datetime.datetime.now())
                 }                   
                 log_entry_event.log_api_call(response_data)                
             
@@ -486,7 +484,7 @@ def pending_notification_count():
         notification_counts = list(mpwz_notifylist.aggregate(pipeline))
 
         # Log aggregation result
-        current_time = datetime.datetime.now()
+        current_time = str(datetime.datetime.now())
         print(f"[{current_time}] Aggregation Result: {notification_counts}")
 
         # Process aggregation results
@@ -514,7 +512,7 @@ def pending_notification_count():
             "msg": f"Pending request count loaded successfully for {username}",
             "current_api": request.full_path,
             "client_ip": request.remote_addr,
-            "response_at": datetime.datetime.now()
+            "response_at": str(datetime.datetime.now())
         }
         log_entry_event.log_api_call(log_data)
 
@@ -539,7 +537,6 @@ def pending_notification_list():
         mpwz_buttons = MongoCollection("mpwz_buttons")
         log_entry_event = myserv_update_users_logs()
         username = get_jwt_identity()
-        # data = request.get_json()  
         application_type = request.args.get('application_type')
         notification_status = request.args.get('notification_status')
 
@@ -558,8 +555,8 @@ def pending_notification_list():
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
-        unique_button_names = mpwz_buttons.find_distinct('button_name')
-        # unique_button_names = mpwz_buttons.find_distinct('button_name',{ 'module_name': app_exists })
+        # Query the collection based on app_source
+        unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": application_type})
 
         for notification in notifications:
             # Create a new dictionary with only the required fields
@@ -598,7 +595,7 @@ def pending_notification_list():
                                     "msg": f"pending request list loaded successfully for {username}",
                                     "current_api": request.full_path,
                                     "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now()
+                                    "response_at": str(datetime.datetime.now())
             }                     
             log_entry_event.log_api_call(response_data)
         else:
@@ -650,7 +647,7 @@ def action_history():
                             "msg": f"Action History List loaded successfully for {username}",
                             "current_api": request.full_path,
                             "client_ip": request.remote_addr,
-                            "response_at": datetime.datetime.now()
+                            "response_at": str(datetime.datetime.now())
                         }  
                         log_entry_event.log_api_call(response_data)
 
@@ -732,7 +729,7 @@ def total_notification_count():
             "msg": f"Dashboard pending request count loaded successfully for {username}",
             "current_api": request.full_path,
             "client_ip": request.remote_addr,
-            "response_at": datetime.datetime.now()
+            "response_at": str(datetime.datetime.now())
         }
         log_entry_event.log_api_call(log_entry_data)
 
@@ -804,7 +801,7 @@ def statuswise_notification_count():
                 "msg": f"Dashboard status-wise count loaded successfully for {username}",
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now()
+                "response_at": str(datetime.datetime.now())
             }
             log_entry_event.log_api_call(log_entry_data)
 
@@ -886,7 +883,7 @@ def dashboard_action_history():
                         "msg": f"History loaded successfully for {username}",
                         "current_api": request.full_path,
                         "client_ip": request.remote_addr,
-                        "response_at": datetime.datetime.now(datetime.timezone.utc).isoformat()  # Use UTC for response time
+                        "response_at":str(datetime.datetime.now())
                     } 
                     log_entry_event.log_api_call(response_data) 
                     print("Request completed successfully")
@@ -961,7 +958,7 @@ def statuswise_notification_list():
                                 "msg": f"request List loaded successfully for {username}",
                                 "current_api": request.full_path,
                                 "client_ip": request.remote_addr,
-                                "response_at": datetime.datetime.now()
+                                "response_at": str(datetime.datetime.now())
                     } 
                     log_entry_event.log_api_call(response_data)    
         else:
@@ -1048,7 +1045,7 @@ def update_notify_status_inhouse_app():
             update_query = {
                 "notify_status": data["notify_status"],
                 "notify_refsys_response": remote_response,
-                "notify_refsys_updatedon": datetime.datetime.now(),
+                "notify_refsys_updatedon": str(datetime.datetime.now()),
             }
             print(f"Update Query: {update_query}")
             print(f"Query: {query}")
@@ -1061,7 +1058,7 @@ def update_notify_status_inhouse_app():
                     "msg": f"Notification Status Updated successfully for {username}",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
-                    "response_at": datetime.datetime.now()
+                    "response_at": str(datetime.datetime.now())
                 }
                 try:                    
                     action_history = update_actionhistory.post_actionhistory_request(username, data)

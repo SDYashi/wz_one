@@ -93,7 +93,7 @@ def create_notification_from_ngb():
                 "msg": f"Data inserted successfully from source {application_type}",
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now()
+                "response_at": str(datetime.datetime.now())
             }
             myserv_update_users_logs().log_api_call(response_data)
             print("Data insertion request completed successfully.")
@@ -161,7 +161,7 @@ def create_notification_from_erp():
                 "msg": f"Data inserted successfully from source {application_type} id:--{str(result.inserted_id)}",
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now()
+                "response_at": str(datetime.datetime.now())
             }
             myserv_update_users_logs().log_api_call(response_data)
             print("Request completed successfully.")

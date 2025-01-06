@@ -15,7 +15,7 @@ class myserv_update_users_logs:
         # print("users log:-",response_data)
 
     def get_current_datetime(self):
-        now =  datetime.datetime.now()
+        now =  str(datetime.datetime.now())
         return now  
 
     def mongo_dbconnect_close(self):

@@ -19,7 +19,7 @@ class myserv_update_actionhistory:
                 data['sequence_no'] = str(data['mpwz_id'])
                 data['mpwz_id'] = str(mpwz_id_actionhistory)
                 data['action_by'] = username
-                data['action_at'] = datetime.datetime.now()
+                data['action_at'] = str(datetime.datetime.now())
 
                 response = self.mpwz_user_action_history.insert_one(data)
                 if response:
@@ -27,7 +27,7 @@ class myserv_update_actionhistory:
                         "msg": f"Action History Updated successfully for {username}",
                         "current_api": request.full_path,
                         "client_ip": request.remote_addr,
-                        "response_at": datetime.datetime.now()
+                        "response_at": str(datetime.datetime.now())
                     }
                     self.log_entry_event.log_api_call(response_data)
                     return jsonify({"msg": f"Action history updated successfully, mpwz_id: {mpwz_id_actionhistory}"}), 200

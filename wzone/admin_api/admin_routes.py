@@ -54,7 +54,7 @@ class AdminAPI:
             return f(*args, **kwargs)
 
         return decorated_function
-admin_api_validator = AdminAPI(collection_name="mpwz_iplist_adminpanel")
+admin_api_validator = AdminAPI(collection_name="mpwz_adminui_iplist")
  
 @admin_api.before_request
 def before_request():
@@ -108,7 +108,7 @@ def create_integration_users_data():
             response_data = {      "msg": f"Integration User Created successfully ",
                                     "current_api": request.full_path,
                                     "client_ip": request.remote_addr,
-                                    "response_at": datetime.datetime.now()
+                                    "response_at": str(datetime.datetime.now())
                         } 
             log_entry_event.log_api_call(response_data)    
             print(f"Request completed {request.full_path}")
@@ -147,7 +147,7 @@ def post_integrated_app():
                 "mpwz_id": mpwz_id_sequenceno,
                 "app_name": data['app_name'],
                 "created_by": username,
-                "created_on": datetime.datetime.now(),
+                "created_on": str(datetime.datetime.now()),
                 "updated_by": "NA",
                 "updated_on": "NA"
             }
@@ -159,7 +159,7 @@ def post_integrated_app():
                     "msg": "New App integrated successfully",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
-                    "response_at": datetime.datetime.now()
+                    "response_at": str(datetime.datetime.now())
                 }
                 log_entry_event.log_api_call(response_data) 
                 print("Request completed successfully for new app integration.")
@@ -199,7 +199,7 @@ def post_notify_status():
                     "button_name": data['button_name'],
                     "module_name": data['module_name'],
                     "created_by": username,
-                    "created_on": datetime.datetime.now(),
+                    "created_on": str(datetime.datetime.now()),
                     "updated_by": "NA",
                     "updated_on": "NA"
                 } 
@@ -210,7 +210,7 @@ def post_notify_status():
                     response_data = {   "msg": f"New Status Added successfully",
                                         "current_api": request.full_path,
                                         "client_ip": request.remote_addr,
-                                        "response_at": datetime.datetime.now()
+                                        "response_at": str(datetime.datetime.now())
                             } 
                     log_entry_event.log_api_call(response_data) 
                     print("Request completed successfully for adding new status.")
@@ -225,6 +225,66 @@ def post_notify_status():
          log_entry_event.mongo_dbconnect_close() 
          mpwz_notify_status.mongo_dbconnect_close()
          seq_gen.mongo_dbconnect_close()
+
+@admin_api.route('/add-button-status', methods=['POST'])
+@admin_api_validator.ip_required
+@jwt_required()
+def post_add_button_status():
+    try:
+        mpwz_buttons = MongoCollection("mpwz_buttons")
+        log_entry_event = myserv_update_users_logs()
+        seq_gen = myserv_generate_mpwz_id_forrecords()
+        username = get_jwt_identity()
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['button_name', 'app_source']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"msg": f"{field} is required"}), 400 
+
+        # Check for existing record
+        existing_record = mpwz_buttons.find_one({"button_name": data["button_name"]})
+        if existing_record:      
+            return jsonify({"msg": "Record with button_name already exists in the database."}), 400
+
+        # Generate new mpwz_id
+        myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_buttons')   
+        new_status = {
+            "mpwz_id": myseq_mpwz_id,
+            "button_name": data['button_name'],
+            "app_source": data['app_source'],
+            "created_by": username,
+            "created_on": str(datetime.datetime.now()),
+            "updated_by": "NA",
+            "updated_on": "NA"
+        } 
+
+        # Insert new record into the database
+        result = mpwz_buttons.insert_one(new_status)
+        if result: 
+            # Add _id to the response, converting ObjectId to string
+            new_status['_id'] = str(result.inserted_id)
+            response_data = {
+                "msg": "New Button Status Added successfully",
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": str(datetime.datetime.now())
+            } 
+            log_entry_event.log_api_call(response_data) 
+            print("Request completed successfully for adding new button status.")
+            return jsonify(new_status), 201
+        else:
+            return jsonify({"msg": "Error while adding new button status into database"}), 500
+
+    except Exception as e:
+        print(f"Exception occurred: {str(e)}")
+        return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
+ 
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_buttons.mongo_dbconnect_close()
+        seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/insert-userlogininfo-from-mpwzusers', methods=['POST'])
 @admin_api_validator.ip_required
@@ -280,7 +340,9 @@ def sync_databases():
 @admin_api_validator.ip_required
 @jwt_required()
 def insert_data_addip_admin():
-    collection = MongoCollection("mpwz_iplist_adminpanel")
+    collection = MongoCollection("mpwz_adminui_iplist")
+    log_entry_event = myserv_update_users_logs()
+    seq_gen = myserv_generate_mpwz_id_forrecords()
     data = request.json
     # Validate the incoming data
     if not data or not all(key in data for key in ['username', 'email', 'phone', 'employee_no', 'ip_address']):
@@ -294,12 +356,20 @@ def insert_data_addip_admin():
     if collection.find_one({"ip_address": data['ip_address']}):
         return jsonify({"error": "IP address already exists"}), 400
     try:
+        
+        myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')                      
+        admin_data = {"mpwz_id": myseq_mpwz_id}
+        data.update(admin_data)
         result = collection.insert_one(data)
         print("Request completed successfully for inserting data into mpwz_iplist_adminpanel.")
         return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200  
     except Exception as e:
         print(f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}")
         return jsonify({"error": f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}"}), 500
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        collection.mongo_dbconnect_close()
+        seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/change-password-byadminuser', methods=['PUT'])
 @admin_api_validator.ip_required
@@ -327,7 +397,7 @@ def change_password_byadmin_forany():
                 "BearrToken": username,
                 "current_api": request.full_path,
                 "client_ip": request.remote_addr,
-                "response_at": datetime.datetime.now()
+                "response_at": str(datetime.datetime.now())
             }
             log_entry_event.log_api_call(response_data)
         print("Password change request completed successfully.")
@@ -364,7 +434,6 @@ def send_email():
     except Exception as e:
         print(f"An error occurred while sending email: {str(e)}")
         return jsonify({"msg": f"An error occurred while sending email: {str(e)}"}), 500
-
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
 @admin_api_validator.ip_required
@@ -414,5 +483,50 @@ def update_secret_key_for_app():
     except Exception as e:
         print(f"An error occurred while updating secret key: {str(e)}")
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
+
+@admin_api.route('/add-admin-details', methods=['POST'])
+@admin_api_validator.ip_required
+@jwt_required()
+def add_admin():
+    try:
+        mpwz_communication_adminlist = MongoCollection("mpwz_communication_adminlist")
+        log_entry_event = myserv_update_users_logs()
+        seq_gen = myserv_generate_mpwz_id_forrecords()
+        data = request.get_json()
+
+        # Validate input data
+        if not data or 'name' not in data or 'email' not in data or 'phone' not in data:
+            return jsonify({"error": "Invalid input data"}), 400
+
+        # Check for duplicate entry
+        existing_admin = mpwz_communication_adminlist.find_one({"email": data['email'], "phone": data['phone']})
+        if existing_admin:
+            return jsonify({"error": "Admin with this email and phone already exists"}), 400
+
+        # Prepare the document to be inserted
+        myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')                      
+        admin_data = {
+            "mpwz_id": myseq_mpwz_id,
+            "app_source": data['app_source'],
+            "employee_id": str(data['employee_id']),
+            "name": data['name'],
+            "email": data['email'],
+            "phone": data['phone'],
+            "created_at": str(datetime.datetime.now()),
+            "updated_at": str(datetime.datetime.now())
+        }
+
+        # Insert the document into the collection
+        result = mpwz_communication_adminlist.insert_one(admin_data)
+
+        # Return the inserted document with its ID
+        return jsonify({"_id": str(result.inserted_id)}), 201
+    except Exception as e:
+        print(f"An error occurred while adding admin details: {str(e)}")
+        return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
+    finally:
+        mpwz_communication_adminlist.mongo_dbconnect_close()
+        log_entry_event.mongo_dbconnect_close()
+        seq_gen.mongo_dbconnect_close()
 
 

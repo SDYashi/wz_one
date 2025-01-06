@@ -40,7 +40,7 @@ class myserv_update_mpwzintegrationusers_frommpwzusers:
                     'token_issuedon': "2024-12-02T14:01:23",
                     'token_expiredon': "2024-12-02T14:01:23",
                     'created_by': "migration_user",
-                    'created_on': datetime.datetime.now(),
+                    'created_on': str(datetime.datetime.now()),
                     'updated_by': "NA",
                     'updated_on': "NA"
                 }
