@@ -66,7 +66,7 @@ def login():
             stored_hashed_password = user['password']
             user_role = user['user_role']
             if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
-                current_datetime = str(datetime.datetime.now())
+                current_datetime = datetime.datetime.now()
 
                 if user_role == myserv_varriable_list.API_USER_ROLE:
                     token_fromdb = user['token_app']
@@ -387,11 +387,10 @@ def my_request_notification_list():
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
-        # Query the collection based on app_source
-        unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": application_type})
-
         for notification in notifications:
             # Create a new dictionary with only the required fields
+            app_type=notification.get("app_source")
+            unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
             filtered_notification = {
                 "app_request_type": notification.get("app_request_type"),
                 "app_source": notification.get("app_source"),
@@ -415,23 +414,17 @@ def my_request_notification_list():
             response_data.append(filtered_notification)
         
         # Log the response statuses
-        if notifications:
-            response_statuses = []
-            for notification in response_data:
-                status_response = {key: value for key, value in notification.items() if key != '_id'}
-                response_statuses.append(status_response)
-                
+        if response_data:                
                 # Log entry in table 
-                response_data = {
+                response_data_log = {
                     "msg": f"my request list loaded successfully for {username}",
                     "current_api": request.full_path,
                     "client_ip": request.remote_addr,
                     "response_at": str(datetime.datetime.now())
                 }                   
-                log_entry_event.log_api_call(response_data)                
-            
-            print("Request completed successfully")
-            return jsonify(response_statuses), 200             
+                log_entry_event.log_api_call(response_data_log)  
+                print("Request completed successfully")
+                return jsonify(response_data), 200             
         else:
             print(f"No pending notifications found for {username}.")
             return jsonify({"msg": f"No pending notifications found for {username}."}), 400
@@ -555,11 +548,10 @@ def pending_notification_list():
         
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
-        # Query the collection based on app_source
-        unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": application_type})
-
         for notification in notifications:
             # Create a new dictionary with only the required fields
+            app_type=notification.get("app_source")
+            unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
             filtered_notification = {
                 "app_request_type": notification.get("app_request_type"),
                 "app_source": notification.get("app_source"),
@@ -585,23 +577,18 @@ def pending_notification_list():
 
         # Log the response statuses
         if response_data:
-            response_statuses = []
-            for notification in response_data:
-                    status_response = {key: value for key, value in notification.items() if key != '_id'}
-                    response_statuses.append(status_response)
-         
-                        # Log entry in table 
-            response_data = {
+            response_data_log = {
                                     "msg": f"pending request list loaded successfully for {username}",
                                     "current_api": request.full_path,
                                     "client_ip": request.remote_addr,
                                     "response_at": str(datetime.datetime.now())
             }                     
-            log_entry_event.log_api_call(response_data)
+            log_entry_event.log_api_call(response_data_log)
+            print("Request completed successfully")
+            return jsonify(response_data), 200   
         else:
             return jsonify({"msg": "No pending notifications found."}), 400
-        print("Request completed successfully")
-        return jsonify(response_statuses), 200
+        
     except Exception as e:
         print(f"An error occurred while processing your request: {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
@@ -611,61 +598,6 @@ def pending_notification_list():
          mpwz_integrated_app.mongo_dbconnect_close() 
          mpwz_buttons.mongo_dbconnect_close() 
   
-@android_api.route('/action-history', methods=['GET'])
-@jwt_required()
-def action_history():
-    try:
-        mpwz_user_action_history = MongoCollection("mpwz_user_action_history")
-        log_entry_event = myserv_update_users_logs()
-        seq_gen = myserv_generate_mpwz_id_forrecords()
-        username = get_jwt_identity()
-        application_type = request.args.get('application_type')
-        # if request.method == 'GET':
-        if application_type:
-                action_history_records = list(mpwz_user_action_history.find(
-                    {
-                        "$and": [
-                            {"app_source": application_type},
-                            {
-                                "$or": [
-                                    {"notify_to_id": username},
-                                    {"notify_from_id": username}
-                                ]
-                            }
-                        ]
-                    }
-                ))
-
-                if action_history_records:
-                    response_statuses = []
-                    for status in action_history_records:
-                        # Creating new dictionary to remove _id from response
-                        status_response = {key: value for key, value in status.items() if key != '_id'}
-                        response_statuses.append(status_response)
-                        # Log entry in table 
-                        response_data = {
-                            "msg": f"Action History List loaded successfully for {username}",
-                            "current_api": request.full_path,
-                            "client_ip": request.remote_addr,
-                            "response_at": str(datetime.datetime.now())
-                        }  
-                        log_entry_event.log_api_call(response_data)
-
-                    print("Request completed successfully")
-                    return jsonify(response_statuses), 200
-                else:
-                    print("No action history found.")
-                    return jsonify({"msg": "No action history found."}), 404
-        else:
-            print("Application is not integrated with us, please contact admin")
-            return jsonify({"msg": "Application is not integrated with us, please contact admin"}), 400
-    except Exception as e:
-        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
-        return jsonify({"msg": f"An error occurred while processing the request. Please try again later.{str(e)}"}), 500
-    
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_user_action_history.mongo_dbconnect_close() 
 
 @android_api.route('/dashboard-total-notify-count', methods=['GET'])
 @jwt_required()
@@ -825,146 +757,110 @@ def statuswise_notification_count():
 @android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
 def dashboard_action_history():
-    try:
-        mpwz_user_action_history = MongoCollection("mpwz_user_action_history")
-        log_entry_event = myserv_update_users_logs()
-        username = get_jwt_identity()
-
-        if request.method == 'GET':          
-            query = {
-                "$or": [
-                    {"notify_to_id": username},
-                    {"notify_from_id": username}
-                ]
-            }
-            limit = 5
-            action_history_records = list(mpwz_user_action_history.find(query))  # Convert cursor to list
+    try: 
+            mpwz_user_action_history = MongoCollection("mpwz_user_action_history")
+            log_entry_event = myserv_update_users_logs()
+            username = get_jwt_identity()
+            response_data=[]
             
-            if action_history_records:
-                # Convert action_datetime to datetime objects if they are strings
-                for record in action_history_records:
-                    if isinstance(record['action_at'], str):
-                        try:
-                            record['action_at'] = parser.parse(record['action_at'])  # Use dateutil.parser
-                        except ValueError as ve:
-                            # Handle the case where the string cannot be converted
-                            print(f"Error converting action_datetime for record {record}: {ve}")
-                            record['action_at'] = None  # Set to None if conversion fails
+            query = {
+                'notify_to_id': username
+            }
+            
+            # Fetch data using query
+            notifications = mpwz_user_action_history.find(query)
+            for notification in notifications:
+                filtered_notification = {
+                    "mpwz_id": notification.get("mpwz_id"),
+                    "notify_status": notification.get("notify_status"),
+                    "notify_refsys_id": notification.get("notify_refsys_id"),
+                    "remarks_byapprover": notification.get("remarks_byapprover"),
+                    "notify_to_id": notification.get("notify_to_id"),
+                    "sequence_no": notification.get("sequence_no"),
+                    "action_by": notification.get("action_by"),
+                    "action_at": notification.get("action_at")
+                }
+                response_data.append(filtered_notification)
+                
 
-                # Filter out records with None action_datetime
-                action_history_records = [record for record in action_history_records if record['action_at'] is not None]
-
-                # Convert all datetime objects to UTC (offset-aware)
-                for record in action_history_records:
-                    if record['action_at'] is not None:
-                        # If naive, make it aware by localizing to UTC
-                        if record['action_at'].tzinfo is None:
-                            record['action_at'] = record['action_at'].replace(tzinfo=datetime.timezone.utc)
-                        else:
-                            # If already aware, ensure it's in UTC timezone
-                            record['action_at'] = record['action_at'].astimezone(datetime.timezone.utc)
-
-                # Now sort the records
-                action_history_records = sorted(action_history_records, key=lambda x: x['action_at'], reverse=True)[:limit]
-
-                if action_history_records:
-                    response_statuses = []
-                    for status in action_history_records:
-                        # Ensure `status` is a dictionary
-                        if isinstance(status, dict):
-                            # Creating new dictionary to remove _id from response
-                            status_response = {key: value for key, value in status.items() if key != '_id'}
-                            response_statuses.append(status_response)
-                        else:
-                            raise ValueError(f"Expected a dictionary, but got: {type(status)}")
-
-                    # Log entry in table 
-                    response_data = {
-                        "msg": f"History loaded successfully for {username}",
-                        "current_api": request.full_path,
-                        "client_ip": request.remote_addr,
-                        "response_at":str(datetime.datetime.now())
-                    } 
-                    log_entry_event.log_api_call(response_data) 
-                    print("Request completed successfully")
-                    return jsonify(response_statuses), 200
-                else:
-                    return jsonify({"msg": "No action history found."}), 404            
+            # Log the response statuses
+            if response_data:
+                response_data_log = {
+                                        "msg": f"Dashboard Aproved request list loaded successfully for {username}",
+                                        "current_api": request.full_path,
+                                        "client_ip": request.remote_addr,
+                                        "response_at": str(datetime.datetime.now())
+                }                     
+                log_entry_event.log_api_call(response_data_log)
+                print("Request completed successfully")
+                return jsonify(response_data), 200   
+            else:
+                return jsonify({"msg": "No pending notifications found."}), 400
+            
     except Exception as e:
-        print(f"An error occurred while processing the request. Exception: {str(e)}")
-        return jsonify({"msg": f"An error occurred while processing the request. Please try again later. {str(e)}"}), 500
-    finally: 
-        log_entry_event.mongo_dbconnect_close() 
-        mpwz_user_action_history.mongo_dbconnect_close()
+            print(f"An error occurred while processing your request: {str(e)}")
+            return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+    finally : 
+            log_entry_event.mongo_dbconnect_close() 
+            mpwz_user_action_history.mongo_dbconnect_close() 
+
 
 @android_api.route('/statuswise-notify-list', methods=['GET'])
 @jwt_required()
 def statuswise_notification_list():
     try:
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
+        mpwz_buttons = MongoCollection("mpwz_buttons")
         log_entry_event = myserv_update_users_logs()
         username = get_jwt_identity()
         notification_status = request.args.get('notification_status')  
         response_data=[]        
         query = {
             'notify_to_id': username,
-            # 'notify_from_id': username,
+        #   'notify_from_id': username,
             'notify_status':notification_status
         }        
         # Fetch data using query
         notifications = mpwz_notifylist.find(query)
 
         for notification in notifications:
-            notification_copy = notification.copy()  
-            notification_copy.pop('_id', None) 
-            response_data.append(notification_copy) 
-
-        
-        # Define the fields to include in the response
-        fields_to_include = [
-            "app_request_type",
-            "app_source",
-            "app_source_appid",
-            "mpwz_id",
-            "notify_comments",
-            "notify_datetime",
-            "notify_description",
-            "notify_from_id",
-            "notify_from_name",
-            "notify_intiatedby",
-            "notify_notes",
-            "notify_refsys_id",
-            "notify_refsys_response",
-            "notify_refsys_updatedon",
-            "notify_status",
-            "notify_to_id",
-            "notify_to_name"
-        ]
-
-        for notification in notifications:
-            # Create a new dictionary with only the specified fields
-            notification_response = {field: notification.get(field) for field in fields_to_include}
-            response_data.append(notification_response)    
-
+            # Create a new dictionary with only the required fields
+            app_type=notification.get("app_source")
+            unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            filtered_notification = {
+                "app_request_type": notification.get("app_request_type"),
+                "app_source": notification.get("app_source"),
+                "app_source_appid": notification.get("app_source_appid"),
+                "buttons": unique_button_names,
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_comments": notification.get("notify_comments"),
+                "notify_datetime": notification.get("notify_datetime"),
+                "notify_description": notification.get("notify_description"),
+                "notify_from_id": notification.get("notify_from_id"),
+                "notify_from_name": notification.get("notify_from_name"),
+                "notify_intiatedby": notification.get("notify_intiatedby"),
+                "notify_notes": notification.get("notify_notes"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_refsys_response": notification.get("notify_refsys_response"),
+                "notify_refsys_updatedon": notification.get("notify_refsys_updatedon"),
+                "notify_status": notification.get("notify_status"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "notify_to_name": notification.get("notify_to_name")
+            }
+            response_data.append(filtered_notification)
         # Log the response statuses
         if response_data:
-            response_statuses = []
-            for notification in response_data:
-                    # Creating new dictionary to remove _id from response
-                    status_response = {key: value for key, value in notification.items() if key != '_id'}
-                    response_statuses.append(status_response)
-                            # Log entry in table 
-                    response_data = {
+                    response_data_logs = {
                                 "msg": f"request List loaded successfully for {username}",
                                 "current_api": request.full_path,
                                 "client_ip": request.remote_addr,
                                 "response_at": str(datetime.datetime.now())
                     } 
-                    log_entry_event.log_api_call(response_data)    
+                    log_entry_event.log_api_call(response_data_logs) 
+                    print("Request completed successfully")
+                    return jsonify(response_data), 200   
         else:
             return jsonify({"msg": "No notifications found."}), 400
-        print("Request completed successfully")
-        return jsonify(response_statuses), 200
     except Exception as e:
         print(f"An error occurred while processing the request. Exception: {str(e)}")
         return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500

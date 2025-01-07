@@ -3,8 +3,8 @@ from pymongo.errors import ConnectionFailure
 from myservices.myserv_varriable_list import myserv_varriable_list
 class myserv_connection_mongodb:
     def __init__(self):
-        self.uri = myserv_varriable_list.MONGODB_CONNECTION_URI
-        self.db_name = myserv_varriable_list.MONGODB_DATABASE
+        self.uri = myserv_varriable_list.mongo_config_URI
+        self.db_name = myserv_varriable_list.mongo_config_DB
         self.client = None
         self.db = None
 
