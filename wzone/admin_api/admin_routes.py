@@ -91,7 +91,7 @@ def after_request(response):
 
 #Admin controller api for web users
 @admin_api.route('/shared-call/api/v1/create-integration-users', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def create_integration_users_data():
     try:
@@ -125,7 +125,7 @@ def create_integration_users_data():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-integrated-app', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def post_integrated_app():
     try:
@@ -175,7 +175,7 @@ def post_integrated_app():
         seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-status', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def post_notify_status():
     try:
@@ -227,7 +227,7 @@ def post_notify_status():
          seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/add-button-status', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def post_add_button_status():
     try:
@@ -287,7 +287,7 @@ def post_add_button_status():
         seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/insert-userlogininfo-from-mpwzusers', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def update_users():
     user_processor = myserv_update_mpwzintegrationusers_frommpwzusers()
@@ -302,7 +302,7 @@ def update_users():
     return jsonify(response)                    
 
 @admin_api.route('/insert-userinfo-from-powerbi-warehouse', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def sync_databases():
     try:
@@ -337,7 +337,7 @@ def sync_databases():
         return jsonify({"msg": f"An error occurred while connecting to Power BI warehouse: {str(e)}"}), 500
  
 @admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def insert_data_addip_admin():
     collection = MongoCollection("mpwz_adminui_iplist")
@@ -372,7 +372,7 @@ def insert_data_addip_admin():
         seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/change-password-byadminuser', methods=['PUT'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def change_password_byadmin_forany():
     try:
@@ -410,7 +410,7 @@ def change_password_byadmin_forany():
         mpwz_users.mongo_dbconnect_close()
      
 @admin_api.route('/send-email', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def send_email():
     try:
@@ -436,7 +436,7 @@ def send_email():
         return jsonify({"msg": f"An error occurred while sending email: {str(e)}"}), 500
 
 @admin_api.route('/update-work-location-foremployee', methods=['PUT'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def update_work_location():
     try:
@@ -473,7 +473,7 @@ def update_work_location():
         log_entry_event.mongo_dbconnect_close()
 
 @admin_api.route('/update-secret-key', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def update_secret_key_for_app():
     try:
@@ -485,7 +485,7 @@ def update_secret_key_for_app():
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
 @admin_api.route('/add-admin-details', methods=['POST'])
-@admin_api_validator.ip_required
+#@admin_api_validator.ip_required
 @jwt_required()
 def add_admin():
     try:

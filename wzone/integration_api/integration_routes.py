@@ -63,6 +63,7 @@ def create_notification_from_ngb():
 
     common_data = {
         'app_source': "ngb",
+        "app_request_type": app_request_type,
         'app_source_appid': mpwz_id_sequenceno,
         'mpwz_id': mpwz_id_sequenceno,
         'notify_comments': "NA",
@@ -80,9 +81,9 @@ def create_notification_from_ngb():
         'notify_to_name': "Mr. Sunil Kumar Patodi",
     }
 
-    if app_request_type in ["CC4", "CCB"]:
-        data.update(common_data)
-        data['app_request_type'] = app_request_type
+    # if app_request_type in ["CC4", "CCB"]:
+    #     data.update(common_data)
+    #     data['app_request_type'] = app_request_type
     # else:
     #     return jsonify({"msg": f"Invalid app request type: {app_request_type}"}), 400
 
@@ -131,6 +132,7 @@ def create_notification_from_erp():
 
     common_data = {
         'app_source': "erp",
+        "app_request_type": app_request_type,
         'app_source_appid': mpwz_id_sequenceno,
         'mpwz_id': mpwz_id_sequenceno,
         'notify_comments': "NA",
@@ -146,11 +148,12 @@ def create_notification_from_erp():
         'notify_status': "PENDING",
         'notify_to_id': "91360238",
         'notify_to_name': "Mr. Sunil Kumar Patodi",
+
     }
 
-    if app_request_type in ["LEAVE", "PROJECT"]:
-        data.update(common_data)
-        data['app_request_type'] = app_request_type
+    # if app_request_type in ["LEAVE", "PROJECT"]:
+    #     data.update(common_data)
+    #     data['app_request_type'] = app_request_type
     # else:
     #     return jsonify({"msg": f"Invalid app request type: {app_request_type}"}), 400
 
