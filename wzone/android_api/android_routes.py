@@ -405,8 +405,6 @@ def my_request_notification_list():
                 "notify_intiatedby": notification.get("notify_intiatedby"),
                 "notify_notes": notification.get("notify_notes"),
                 "notify_refsys_id": notification.get("notify_refsys_id"),
-                "notify_refsys_response": notification.get("notify_refsys_response"),
-                "notify_refsys_updatedon": notification.get("notify_refsys_updatedon"),
                 "notify_status": notification.get("notify_status"),
                 "notify_to_id": notification.get("notify_to_id"),
                 "notify_to_name": notification.get("notify_to_name")
@@ -566,8 +564,6 @@ def pending_notification_list():
                 "notify_intiatedby": notification.get("notify_intiatedby"),
                 "notify_notes": notification.get("notify_notes"),
                 "notify_refsys_id": notification.get("notify_refsys_id"),
-                "notify_refsys_response": notification.get("notify_refsys_response"),
-                "notify_refsys_updatedon": notification.get("notify_refsys_updatedon"),
                 "notify_status": notification.get("notify_status"),
                 "notify_to_id": notification.get("notify_to_id"),
                 "notify_to_name": notification.get("notify_to_name")
@@ -841,8 +837,6 @@ def statuswise_notification_list():
                 "notify_intiatedby": notification.get("notify_intiatedby"),
                 "notify_notes": notification.get("notify_notes"),
                 "notify_refsys_id": notification.get("notify_refsys_id"),
-                "notify_refsys_response": notification.get("notify_refsys_response"),
-                "notify_refsys_updatedon": notification.get("notify_refsys_updatedon"),
                 "notify_status": notification.get("notify_status"),
                 "notify_to_id": notification.get("notify_to_id"),
                 "notify_to_name": notification.get("notify_to_name")
