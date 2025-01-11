@@ -214,3 +214,18 @@ class MongoCollection:
             print(f"Error while getting collection stats: {e}")
             return None
         
+    def sort(self, *args, **kwargs):
+        try:
+            return self.collection.sort(*args, **kwargs)
+        except Exception as e:
+            print(f"Error while sorting data: {e}")
+            return None
+        
+    def find_sortall(self, query=None, projection=None, sort=None, limit=None, **kwargs):
+        cursor = self.collection.find(query or {}, projection, **kwargs)        
+        if sort:
+            cursor = cursor.sort(sort)        
+        if limit:
+            cursor = cursor.limit(limit)        
+        return cursor 
+        

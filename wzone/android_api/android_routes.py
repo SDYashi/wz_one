@@ -389,8 +389,13 @@ def my_request_notification_list():
         notifications = mpwz_notifylist.find(query)
         for notification in notifications:
             # Create a new dictionary with only the required fields
-            app_type=notification.get("app_source")
-            unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            # if notification_status==myserv_varriable_list.notification_status_PENDING:                
+            #     app_type=notification.get("app_source")
+            #     unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            # else:
+            #     unique_button_names=[] 
+            unique_button_names=[]     
+
             filtered_notification = {
                 "app_request_type": notification.get("app_request_type"),
                 "app_source": notification.get("app_source"),
@@ -548,8 +553,12 @@ def pending_notification_list():
         notifications = mpwz_notifylist.find(query)
         for notification in notifications:
             # Create a new dictionary with only the required fields
-            app_type=notification.get("app_source")
-            unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            if notification_status==myserv_varriable_list.notification_status_PENDING:                
+                app_type=notification.get("app_source")
+                unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            else:
+                unique_button_names=[]   
+
             filtered_notification = {
                 "app_request_type": notification.get("app_request_type"),
                 "app_source": notification.get("app_source"),
@@ -593,8 +602,7 @@ def pending_notification_list():
          mpwz_notifylist.mongo_dbconnect_close() 
          mpwz_integrated_app.mongo_dbconnect_close() 
          mpwz_buttons.mongo_dbconnect_close() 
-  
-
+ 
 @android_api.route('/dashboard-total-notify-count', methods=['GET'])
 @jwt_required()
 def total_notification_count():
@@ -753,52 +761,48 @@ def statuswise_notification_count():
 @android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
 def dashboard_action_history():
-    try: 
-            mpwz_user_action_history = MongoCollection("mpwz_user_action_history")
-            log_entry_event = myserv_update_users_logs()
-            username = get_jwt_identity()
-            response_data=[]
-            
-            query = {
-                'notify_to_id': username
-            }
-            
-            # Fetch data using query
-            notifications = mpwz_user_action_history.find(query)
-            for notification in notifications:
-                filtered_notification = {
-                    "mpwz_id": notification.get("mpwz_id"),
-                    "notify_status": notification.get("notify_status"),
-                    "notify_refsys_id": notification.get("notify_refsys_id"),
-                    "remarks_byapprover": notification.get("remarks_byapprover"),
-                    "notify_to_id": notification.get("notify_to_id"),
-                    "sequence_no": notification.get("sequence_no"),
-                    "action_by": notification.get("action_by"),
-                    "action_at": notification.get("action_at")
-                }
-                response_data.append(filtered_notification)
-                
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_user_action_history")
+        log_entry_event = myserv_update_users_logs()
+        username = get_jwt_identity()
+        response_data = []
+        query = {
+            'notify_status': {'$in': ['APPROVED', 'REJECTED', 'REASSIGNED']},
+            # 'notify_to_id': {'$regex': f'^{username}'} 
+        }        
+        # Fetch data using query
+        notifications = mpwz_notifylist.find_sortall(query).sort("action_at", -1).limit(5)
 
-            # Log the response statuses
-            if response_data:
-                response_data_log = {
-                                        "msg": f"Dashboard Aproved request list loaded successfully for {username}",
-                                        "current_api": request.full_path,
-                                        "client_ip": request.remote_addr,
-                                        "response_at": str(datetime.datetime.now())
-                }                     
-                log_entry_event.log_api_call(response_data_log)
-                print("Request completed successfully")
-                return jsonify(response_data), 200   
-            else:
-                return jsonify({"msg": "No pending notifications found."}), 400
-            
+        for notification in notifications:
+            filtered_notification = {
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_status": notification.get("notify_status"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "sequence_no": notification.get("sequence_no"),
+                "action_by": notification.get("action_by"),
+                "action_at": notification.get("action_at")
+            }
+            response_data.append(filtered_notification)
+        # Log the response statuses
+        if response_data:
+                    response_data_logs = {
+                                "msg": f"request List loaded successfully for {username}",
+                                "current_api": request.full_path,
+                                "client_ip": request.remote_addr,
+                                "response_at": str(datetime.datetime.now())
+                    } 
+                    log_entry_event.log_api_call(response_data_logs) 
+                    print("Request completed successfully")
+                    return jsonify(response_data), 200   
+        else:
+            return jsonify({"msg": "No notifications found."}), 400
     except Exception as e:
-            print(f"An error occurred while processing your request: {str(e)}")
-            return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+        print(f"An error occurred while processing the request. Exception: {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
     finally : 
-            log_entry_event.mongo_dbconnect_close() 
-            mpwz_user_action_history.mongo_dbconnect_close() 
+         log_entry_event.mongo_dbconnect_close() 
+         mpwz_notifylist.mongo_dbconnect_close() 
 
 
 @android_api.route('/statuswise-notify-list', methods=['GET'])
@@ -813,7 +817,7 @@ def statuswise_notification_list():
         response_data=[]        
         query = {
             'notify_to_id': username,
-        #   'notify_from_id': username,
+            # 'notify_from_id': username,
             'notify_status':notification_status
         }        
         # Fetch data using query
@@ -821,8 +825,12 @@ def statuswise_notification_list():
 
         for notification in notifications:
             # Create a new dictionary with only the required fields
-            app_type=notification.get("app_source")
-            unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            if notification_status==myserv_varriable_list.notification_status_PENDING:                
+                app_type=notification.get("app_source")
+                unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            else:
+                unique_button_names=[]   
+
             filtered_notification = {
                 "app_request_type": notification.get("app_request_type"),
                 "app_source": notification.get("app_source"),
@@ -866,14 +874,12 @@ def statuswise_notification_list():
 @jwt_required()
 def update_notify_status_inhouse_app():
     try:
-        print("Initializing MongoDB collections and user logs")
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
         log_entry_event = myserv_update_users_logs()
         update_actionhistory = myserv_update_actionhistory()
-
-        print("Fetching user identity and request data")
         username = get_jwt_identity()
         data = request.get_json()
+        notify_status_response=data.get("notify_status")
         required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover", "notify_to_id"]
 
         if not all(field in data for field in required_fields):
@@ -881,104 +887,85 @@ def update_notify_status_inhouse_app():
 
         notify_to_id = data["notify_to_id"]
         if notify_to_id != username:
-            print("Authorization failed: notify_to_id does not match username")
             return jsonify({"msg": "You are not authorized to update this notification status."}), 403
 
-        query = {
-            "mpwz_id": data["mpwz_id"],
-            "notify_to_id": data["notify_to_id"],
-            "notify_refsys_id": data["notify_refsys_id"]
-        }
-
-        print(f"Querying database with: {query}")
-        ngb_user_details = mpwz_notifylist.find_one(query)
-
-        if ngb_user_details is None:
-            print("Notification details not found in database")
-            return jsonify({"msg": "Notification details not found in database"}), 404
-
-        if ngb_user_details.get("app_request_type") == "CC4":
-            print("Processing notification for CC4")
-            shared_api_data = {
-                "id": ngb_user_details["notify_refsys_id"],
-                "locationCode": ngb_user_details["notify_refsys_id"],
-                "approver": ngb_user_details["notify_refsys_id"],
-                "billId": ngb_user_details["notify_refsys_id"],
-                "billCorrectionProfileInitiatorId": ngb_user_details["notify_refsys_id"],
-                "status": data["notify_refsys_id"],
-                "remark": ngb_user_details["notify_refsys_id"],
-                "updatedBy": ngb_user_details["notify_refsys_id"],
-                "updatedOn": ngb_user_details["notify_refsys_id"]
+        if data["notify_status"] == myserv_varriable_list.notification_status_APPROVED or data["notify_status"] != myserv_varriable_list.notification_status_REASSIGNED:
+            query = {
+                "mpwz_id": data["mpwz_id"],
+                "notify_to_id": data["notify_to_id"],
+                "notify_refsys_id": data["notify_refsys_id"]
             }
-            remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
+            ngb_user_details = mpwz_notifylist.find_one(query)
 
-        elif ngb_user_details.get("app_request_type") == "CCB":
-            print("Processing notification for CCB")
-            shared_api_data = {
-                "postingDate": ngb_user_details["app_request_type"],
-                "amount": ngb_user_details["app_request_type"],
-                "code": ngb_user_details["app_request_type"],
-                "ccbRegisterNo": ngb_user_details["app_request_type"],
-                "remark": ngb_user_details["app_request_type"],
-                "consumerNo": ngb_user_details["app_request_type"],
-            }
-            remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
-
-        else:
-            print("Notification Type is not allowed to push data to NGB")
-            return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400
-        
-        print(f"Remote response: {remote_response}")
-
-        if remote_response is not None and remote_response['status_code'] == 200:
-            print("Remote update successful, updating local database")
-            update_query = {
-                "notify_status": data["notify_status"],
-                "notify_refsys_response": remote_response,
-                "notify_refsys_updatedon": str(datetime.datetime.now()),
-            }
-            print(f"Update Query: {update_query}")
-            print(f"Query: {query}")
-
-            result = mpwz_notifylist.update_one(query, update_query)
-
-            if result.modified_count > 0:
-                print(f"Local database updated successfully with {result.modified_count} modifications")
-                response_data = {
-                    "msg": f"Notification Status Updated successfully for {username}",
-                    "current_api": request.full_path,
-                    "client_ip": request.remote_addr,
-                    "response_at": str(datetime.datetime.now())
-                }
-                try:                    
-                    action_history = update_actionhistory.post_actionhistory_request(username, data)
-                    print(f"action_history make entry: {action_history}")
-                    log_entry_event.log_api_call(response_data)
-                    print(f"log_entry_event make entry: {log_entry_event}")
-                except Exception as e:
-                    print(f"Exception occurred while calling update_actionhistory and log_entry_event: {e}")
-                    if "update_actionhistory" in str(e) and "log_entry_event" in str(e):
-                        return jsonify({"msg": "Both update_actionhistory and log_entry_event objects are None."}), 500
-                    elif "update_actionhistory" in str(e):
-                        return jsonify({"msg": "update_actionhistory object is None."}), 500
-                    elif "log_entry_event" in str(e):
-                        return jsonify({"msg": "log_entry_event object is None."}), 500
+            if ngb_user_details is None:
+                return jsonify({"msg": "Notification details not found in database"}), 404            
+            else:
+                if ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_ngb :    
+                    if ngb_user_details.get("app_request_type") == myserv_varriable_list.notification_type_ngb_ccb:
+                        shared_api_data = {
+                            "id": ngb_user_details["notify_refsys_id"],
+                            "locationCode": ngb_user_details["notify_refsys_id"],
+                            "approver": ngb_user_details["notify_refsys_id"],
+                            "billId": ngb_user_details["notify_refsys_id"],
+                            "billCorrectionProfileInitiatorId": ngb_user_details["notify_refsys_id"],
+                            "status": data["notify_refsys_id"],
+                            "remark": ngb_user_details["notify_refsys_id"],
+                            "updatedBy": ngb_user_details["notify_refsys_id"],
+                            "updatedOn": ngb_user_details["notify_refsys_id"]
+                        }
+                        remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
+                    elif ngb_user_details.get("app_request_type") == myserv_varriable_list.notification_type_ngb_cc4:
+                        shared_api_data = {
+                            "postingDate": ngb_user_details["app_request_type"],
+                            "amount": ngb_user_details["app_request_type"],
+                            "code": ngb_user_details["app_request_type"],
+                            "ccbRegisterNo": ngb_user_details["app_request_type"],
+                            "remark": ngb_user_details["app_request_type"],
+                            "consumerNo": ngb_user_details["app_request_type"],
+                        }
+                        remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
                     else:
-                        return jsonify({"msg": str(e)}), 500
-                print(f"Request completed successfully: {response_data}")
-                return jsonify({"msg": f"Notification Status Updated Successfully {result.modified_count}"}), 200
+                        return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400                    
+                    if remote_response is not None and remote_response['status_code'] == 200:
+                        update_query = {
+                            "notify_status": data["notify_status"],
+                            "notify_refsys_response": remote_response,
+                            "notify_refsys_updatedon": str(datetime.datetime.now()),
+                        }
+                        result = mpwz_notifylist.update_one(query, update_query)
+
+                        if result.modified_count > 0:
+                            response_data = {
+                                "msg": f"Notification Status Updated successfully for {username}",
+                                "current_api": request.full_path,
+                                "client_ip": request.remote_addr,
+                                "response_at": str(datetime.datetime.now())
+                            }
+                            try:                    
+                                action_history = update_actionhistory.post_actionhistory_request(username, data)
+                                if action_history:
+                                    log_entry_event.log_api_call(response_data)
+                                    return jsonify({"msg": f"Notification {notify_status_response} Successfully {result.modified_count}"}), 200
+                                else:
+                                    return jsonify({"msg": "Failed to update action history,Please Try Again."}), 500
+                            except Exception as e:
+                                return jsonify({"msg": str(e)}), 500
+                    else:
+                        return jsonify({"msg": "Something went wrong while updating Notification into remote servers"}), 400
+                    
+                elif ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_erp :
+                    return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400    
+       
         else:
-            print("Failed to update notification into remote servers")
-            return jsonify({"msg": "Something went wrong while updating Notification into remote servers"}), 400
+              return jsonify({"msg": "You are not authorized to Change Notification Status otherthan PENDING"}), 403
     except Exception as e:
-        print(f"Request failed with error: {str(e)}")
-        return jsonify({"msg": str(e)}), 500
+            return jsonify({"msg": f"Request failed with error: {str(e)}"}), 500
     finally:
-        print("Closing MongoDB connections")
-        log_entry_event.mongo_dbconnect_close()
-        mpwz_notifylist.mongo_dbconnect_close()
+            log_entry_event.mongo_dbconnect_close()
+            mpwz_notifylist.mongo_dbconnect_close()
 
 @android_api.route('/dashboard-api-logs-hits-count', methods=['GET'])
+@jwt_required()
 def get_api_hits_count():
     try:
         mpwz_users_api_logs = MongoCollection("mpwz_users_api_logs")
@@ -992,6 +979,7 @@ def get_api_hits_count():
         mpwz_users_api_logs.mongo_dbconnect_close()
 
 @android_api.route('/dashboard-collection-size-status', methods=['GET'])
+@jwt_required()
 def collection_status():    
     db_service = myserv_update_dbservices()   
     try:
@@ -1010,6 +998,7 @@ def collection_status():
         db_service.mongo_dbconnect_close()  # Ensure this method exists
 
 @android_api.route('/dashboard-active-users-count', methods=['GET'])
+@jwt_required()
 def get_user_count():    
     mpwz_integration_users = MongoCollection("mpwz_integration_users")
     try:
@@ -1021,3 +1010,8 @@ def get_user_count():
         return jsonify({"error": str(e)}), 500
     finally:
         mpwz_integration_users.mongo_dbconnect_close()
+
+@android_api.route('/verify-oneapp-url', methods=['GET'])
+def verify_oneapp_url():
+    """Verify that the one app backend is working fine"""
+    return jsonify({"msg": "one app backend is working fine"}), 200

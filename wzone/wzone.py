@@ -16,7 +16,7 @@ from admin_api import admin_api
 from android_api import android_api
 from integration_api import integration_api
 from myservices.myserv_varriable_list import myserv_varriable_list
-
+import pymongo
 #register app with flask
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -25,6 +25,8 @@ jwt = JWTManager(app)
 app.register_blueprint(admin_api, url_prefix='/admin')
 app.register_blueprint(android_api, url_prefix='/android')
 app.register_blueprint(integration_api, url_prefix='/integration')
+print(pymongo.version)
 
 if __name__ == '__main__':
-  app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
+  app.run(host='0.0.0.0', port=8000, debug=True, threaded=True)
+

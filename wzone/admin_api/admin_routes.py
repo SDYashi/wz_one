@@ -4,9 +4,10 @@ import time
 import bcrypt
 from flask import Flask, request, jsonify
 from functools import wraps
-from pymongo import MongoClient
+from pymongo import DESCENDING
 from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
 from flask_pymongo import PyMongo
+import pymongo
 from . import admin_api
 from myservices.myserv_update_mpwzintegrationusers_frommpwzusers import myserv_update_mpwzintegrationusers_frommpwzusers
 from myservices.myserv_update_mpwzusers_frombiserver import myserv_update_mpwzusers_frombiserver
@@ -529,4 +530,56 @@ def add_admin():
         log_entry_event.mongo_dbconnect_close()
         seq_gen.mongo_dbconnect_close()
 
+@admin_api.route('/admin-dashboard-recent-actiondone-history', methods=['GET'])
+@jwt_required()
+def admin_dashboard_action_history():
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_user_action_history")
+        log_entry_event = myserv_update_users_logs()
+        username = get_jwt_identity()
+        response_data = []
+        query = {
+            'notify_status': {'$in': ['APPROVED', 'REJECTED', 'REASSIGNED']},
+            # 'notify_to_id': username
+        }
+
+        notifications = mpwz_notifylist.find_sortall(
+            query=query,
+            sort=[("action_at", pymongo.DESCENDING)],
+            limit=3
+        )
+
+        # notifications = mpwz_notifylist.find_sortall(query).sort("action_at", DESCENDING).limit(5)
+
+        for notification in notifications:
+            filtered_notification = {
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_status": notification.get("notify_status"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "sequence_no": notification.get("sequence_no"),
+                "action_by": notification.get("action_by"),
+                "action_at": notification.get("action_at")
+            }
+            response_data.append(filtered_notification)
+
+        # Log the response statuses
+        if response_data:
+            response_data_logs = {
+                "msg": f"Request List loaded successfully for {username}",
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": str(datetime.datetime.now())
+            }
+            log_entry_event.log_api_call(response_data_logs)
+            print("Request completed successfully")
+            return jsonify(response_data), 200
+        else:
+            return jsonify({"msg": "No notifications found."}), 400
+    except Exception as e:
+        print(f"An error occurred while processing the request. Exception: {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
 
