@@ -4,8 +4,6 @@ import pytz
 import os
 import secrets
 import subprocess
-# from myservices.myserv_varriable_list import myserv_varriable_list
-
 class MyService:
     def __init__(self, mongo_uri, database_name, collection_name):
         self.mongo_client = MongoClient(mongo_uri)
@@ -63,10 +61,10 @@ class MyService:
         self.mongo_client.close()
 
 def main():
-    # MongoDB connection details
     MONGO_URI = "mongodb://localhost:27017/"
     DATABASE_NAME = "admin"
     COLLECTION_NAME = "mpwz_notifylist"
+     # Create an instance of the MyService class
     service = MyService(MONGO_URI, DATABASE_NAME, COLLECTION_NAME)
 
     # Example usage of change_field_type
@@ -74,7 +72,7 @@ def main():
     field_name = "mpwz_id"
     from_property = "string"  
     to_property = "int"     
-    service.change_field_type(collection_name, field_name, from_property, to_property)
+    # service.change_field_type(collection_name, field_name, from_property, to_property)
     
     # Example usage of change_all_fields_to_string
     # service.change_all_fields_to_string(collection_name)

@@ -13,7 +13,6 @@ from myservices.myserv_update_mpwzintegrationusers_frommpwzusers import myserv_u
 from myservices.myserv_update_mpwzusers_frombiserver import myserv_update_mpwzusers_frombiserver
 from myservices.myserv_send_notification import EmailSender
 from myservices.myserv_connection_forblueprints import MongoCollection
-from myservices.myserv_generate_secretkey_forapp import SecretKeyManager
 from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
@@ -472,18 +471,6 @@ def update_work_location():
     finally:
         mpwz_integration_users.mongo_dbconnect_close()
         log_entry_event.mongo_dbconnect_close()
-
-@admin_api.route('/update-secret-key', methods=['POST'])
-#@admin_api_validator.ip_required
-@jwt_required()
-def update_secret_key_for_app():
-    try:
-        new_secret_key = SecretKeyManager.update_secret_key()
-        print("Secret key updated request completed successfully.")
-        return jsonify({"msg": "Secret key updated successfully.", "new_secret_key": new_secret_key})
-    except Exception as e:
-        print(f"An error occurred while updating secret key: {str(e)}")
-        return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
 
 @admin_api.route('/add-admin-details', methods=['POST'])
 #@admin_api_validator.ip_required
