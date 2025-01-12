@@ -2,12 +2,15 @@ import base64
 import datetime
 import json
 import os
+import socket
+import subprocess
 import time
 from flask import Config, Flask, request, jsonify
 from flask_pymongo import PyMongo
 from flask_jwt_extended import JWTManager,create_access_token, decode_token, jwt_required, get_jwt_identity,get_jwt
 from flask_cors import CORS
 import bcrypt
+import requests
 from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_connection_mongodb import myserv_connection_mongodb
@@ -19,14 +22,54 @@ from myservices.myserv_varriable_list import myserv_varriable_list
 import pymongo
 #register app with flask
 app = Flask(__name__)
+startup_executed = False
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config['JWT_SECRET_KEY'] =myserv_varriable_list.JWT_SECRET_KEY
 jwt = JWTManager(app)
 app.register_blueprint(admin_api, url_prefix='/admin')
 app.register_blueprint(android_api, url_prefix='/android')
 app.register_blueprint(integration_api, url_prefix='/integration')
-print(pymongo.version)
+
+def run_startup_task():
+    try:
+        url = "https://one.mpwin.co.in:443/android/verify-oneapp-url"  
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        print(f"API Request to One App fetched successfully!{response.text}")
+        global startup_executed
+        startup_executed = True 
+    except requests.exceptions.RequestException as e:
+        print(f"API Request to One App failed: {e} \n")
+
+def run_network_diagnostics():
+    try:
+        # Ping the host
+        try:
+            ping_response = subprocess.run(["ping", "-c", "4", "one.mpwin.co.in"], capture_output=True, text=True)
+            print("Ping Output:\n", ping_response.stdout)
+        except Exception as e:
+            print(f"Ping operation failed: {e} \n")
+
+        # NSLookup the host
+        try:
+            nslookup_response = subprocess.run(["nslookup", "one.mpwin.co.in"], capture_output=True, text=True)
+            print("NSLookup Output:\n", nslookup_response.stdout)
+        except Exception as e:
+            print(f"NSLookup operation failed: {e} \n")
+
+    except Exception as e:
+        print(f"An error occurred during network diagnostics: {e} \n")
+
+try:
+    print("Starting network diagnostics... \n")
+    run_network_diagnostics()
+    print("Network diagnostics completed.\n")
+    print("Starting startup task for one app backend domain...\n")
+    run_startup_task()
+    print("Startup task for one app backend domain completed.\n")
+except Exception as e:
+    print(f"An error occurred during startup: {e} \n")
 
 if __name__ == '__main__':
-  app.run(host='0.0.0.0', port=8000, debug=True, threaded=True)
+  app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
 
