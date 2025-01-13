@@ -30,24 +30,6 @@ app.register_blueprint(admin_api, url_prefix='/admin')
 app.register_blueprint(android_api, url_prefix='/android')
 app.register_blueprint(integration_api, url_prefix='/integration')
 
-def run_startup_task():
-    try:
-        url = "https://one.mpwin.co.in:443/android/verify-oneapp-url"  
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        print(f"API Request to One App fetched successfully!{response.text}")
-        global startup_executed
-        startup_executed = True 
-    except requests.exceptions.RequestException as e:
-        print(f"API Request to One App failed: {e} \n")
-
-try:
-    print("Starting startup task for one app backend domain...\n")
-    run_startup_task()
-    print("Startup task for one app backend domain completed.\n")
-except Exception as e:
-    print(f"An error occurred during startup: {e} \n")
-
 if __name__ == '__main__':
-  app.run(host='0.0.0.0', port=8000, debug=False, threaded=True)
+  app.run(host='0.0.0.0', port=443, debug=False, threaded=True)
 

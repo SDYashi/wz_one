@@ -147,17 +147,19 @@ def change_password():
         # Hash the new password
         hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
-        mpwz_integration_users.update_one({"username": username}, {"password": hashed_password})
-
-        response_data = {
-            "msg": f"Password Changed successfully for {username}",
-            "current_api": request.full_path,
-            "client_ip": request.remote_addr,
-            "response_at": str(datetime.datetime.now())
-        } 
-        log_entry_event.log_api_call(response_data)
-        print(f"Request completed successfully: {response_data}")
-        return jsonify({"msg": "Password changed successfully!"}), 200
+        update_result = mpwz_integration_users.update_one({"username": username}, {"$set": {"password": hashed_password}})
+        if update_result.modified_count > 0:
+            response_data = {
+                "msg": f"Password Changed successfully for {username}",
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": str(datetime.datetime.now())
+            } 
+            log_entry_event.log_api_call(response_data)
+            print(f"Request completed successfully: {response_data}")
+            return jsonify({"msg": "Password changed successfully!"}), 200
+        else:
+            return jsonify({"msg": "Password not changed. Please try again."}), 400
     except Exception as error:
         print(f"Request failed with error: {str(error)}")
         return jsonify({"msg": f"An error occurred while changing the password.errors {str(error)}."}), 500
