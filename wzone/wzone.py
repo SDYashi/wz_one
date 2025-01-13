@@ -41,29 +41,7 @@ def run_startup_task():
     except requests.exceptions.RequestException as e:
         print(f"API Request to One App failed: {e} \n")
 
-def run_network_diagnostics():
-    try:
-        # Ping the host
-        try:
-            ping_response = subprocess.run(["ping", "-c", "4", "one.mpwin.co.in"], capture_output=True, text=True)
-            print("Ping Output:\n", ping_response.stdout)
-        except Exception as e:
-            print(f"Ping operation failed: {e} \n")
-
-        # NSLookup the host
-        try:
-            nslookup_response = subprocess.run(["nslookup", "one.mpwin.co.in"], capture_output=True, text=True)
-            print("NSLookup Output:\n", nslookup_response.stdout)
-        except Exception as e:
-            print(f"NSLookup operation failed: {e} \n")
-
-    except Exception as e:
-        print(f"An error occurred during network diagnostics: {e} \n")
-
 try:
-    print("Starting network diagnostics... \n")
-    run_network_diagnostics()
-    print("Network diagnostics completed.\n")
     print("Starting startup task for one app backend domain...\n")
     run_startup_task()
     print("Startup task for one app backend domain completed.\n")

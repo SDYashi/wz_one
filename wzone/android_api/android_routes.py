@@ -94,7 +94,7 @@ def login():
                     app_token_expiredon_fromdb = datetime.datetime.fromisoformat(user['token_expiredon'])
 
                     if app_token_expiredon_fromdb < current_datetime:
-                        expires_delta = datetime.timedelta(days=1) if user_role == 'android_user' else datetime.timedelta(hours=1)
+                        expires_delta = datetime.timedelta(days=30) if user_role == 'android_user' else datetime.timedelta(days=365)
                         access_token = create_access_token(identity=username, expires_delta=expires_delta)
                         jwt_claims = decode_token(access_token)
                         update_query = {

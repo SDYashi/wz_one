@@ -487,9 +487,9 @@ def add_admin():
             return jsonify({"error": "Invalid input data"}), 400
 
         # Check for duplicate entry
-        existing_admin = mpwz_communication_adminlist.find_one({"email": data['email'], "phone": data['phone']})
+        existing_admin = mpwz_communication_adminlist.find_one({"employee_id": data['employee_id'],"name": data['name'],"email": data['email'], "phone": data['phone']})
         if existing_admin:
-            return jsonify({"error": "Admin with this email and phone already exists"}), 400
+            return jsonify({"error": "Admin with these details already exists", "data": f"{existing_admin}"}), 400
 
         # Prepare the document to be inserted
         myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')                      
@@ -508,7 +508,7 @@ def add_admin():
         result = mpwz_communication_adminlist.insert_one(admin_data)
 
         # Return the inserted document with its ID
-        return jsonify({"_id": str(result.inserted_id)}), 201
+        return jsonify({"_id": str(result.inserted_id), "msg": "Admin details added successfully"}), 201
     except Exception as e:
         print(f"An error occurred while adding admin details: {str(e)}")
         return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
