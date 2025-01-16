@@ -388,7 +388,7 @@ def change_password_byadmin_forany():
         # Hash the new password
         hashed_password = bcrypt.hashpw(new_password_user.encode('utf-8'), bcrypt.gensalt())
         # Update the password in the database
-        response = mpwz_users.update_one({"username": username_user}, {"$set": {"password": hashed_password}})
+        response = mpwz_users.update_one({"username": username_user},{"password": hashed_password})
         if response.modified_count == 0:
             return jsonify({"msg": "No changes made, password may be the same as the current one"}), 400
         else:

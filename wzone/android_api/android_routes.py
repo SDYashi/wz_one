@@ -12,7 +12,7 @@ from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_i
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_forblueprints import MongoCollection
-from shared_api import shared_apiServices_callingforNGB
+from shared_api import ngb_apiServices
 from myservices.myserv_update_dbservices import myserv_update_dbservices
 from myservices.myserv_update_actionhistory import myserv_update_actionhistory
 from . import android_api
@@ -147,7 +147,7 @@ def change_password():
         # Hash the new password
         hashed_password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt())
         
-        update_result = mpwz_integration_users.update_one({"username": username}, {"$set": {"password": hashed_password}})
+        update_result = mpwz_integration_users.update_one({"username": username}, {"password": hashed_password})
         if update_result.modified_count > 0:
             response_data = {
                 "msg": f"Password Changed successfully for {username}",
@@ -750,7 +750,16 @@ def statuswise_notification_count():
                 "status_count": response_data['status_count']
             }), 200
         else:
-            return jsonify({"msg": f"No notifications found for the user {username}."}), 404
+            return jsonify({
+                "status_count": {
+                    "APPROVED": 0,
+                    "PENDING": 0,
+                    "REJECTED": 0,
+                    "REASSIGNED": 0
+                },
+                "total_count": 0
+            }), 404
+            # return jsonify({"msg": f"No notifications found for the user {username}."}), 404
 
     except Exception as e:
         print(f"An error occurred while processing the request. Please try again later. {str(e)}")
@@ -881,29 +890,28 @@ def update_notify_status_inhouse_app():
         update_actionhistory = myserv_update_actionhistory()
         username = get_jwt_identity()
         data = request.get_json()
-        notify_status_response=data.get("notify_status")
         required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover", "notify_to_id"]
 
         if not all(field in data for field in required_fields):
             return jsonify({"msg": "All required fields are not present in the request data"}), 400
 
-        notify_to_id = data["notify_to_id"]
-        if notify_to_id != username:
-            return jsonify({"msg": "You are not authorized to update this notification status."}), 403
+        query = {
+            "mpwz_id": data["mpwz_id"],
+            "notify_to_id": data["notify_to_id"],
+            "notify_refsys_id": data["notify_refsys_id"]
+        }
+        ngb_user_details = mpwz_notifylist.find_one(query)
 
-        if data["notify_status"] == myserv_varriable_list.notification_status_APPROVED or data["notify_status"] != myserv_varriable_list.notification_status_REASSIGNED:
-            query = {
-                "mpwz_id": data["mpwz_id"],
-                "notify_to_id": data["notify_to_id"],
-                "notify_refsys_id": data["notify_refsys_id"]
-            }
-            ngb_user_details = mpwz_notifylist.find_one(query)
-
-            if ngb_user_details is None:
-                return jsonify({"msg": "Notification details not found in database"}), 404            
+        if ngb_user_details is None:
+            return jsonify({"msg": "Notification details not found in database"}), 404
+        else:
+            if ngb_user_details["notify_status"] != myserv_varriable_list.notification_status_PENDING:
+                return jsonify({"msg": "You are not authorized to change notification status otherthan pending"}), 400
             else:
-                if ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_ngb :    
-                    if ngb_user_details.get("app_request_type") == myserv_varriable_list.notification_type_ngb_ccb:
+                if ngb_user_details["notify_to_id"] != username:
+                    return jsonify({"msg": "You are not authorized to update this notification ."}), 403
+                else:
+                    if ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_ngb:
                         shared_api_data = {
                             "id": ngb_user_details["notify_refsys_id"],
                             "locationCode": ngb_user_details["notify_refsys_id"],
@@ -915,8 +923,8 @@ def update_notify_status_inhouse_app():
                             "updatedBy": ngb_user_details["notify_refsys_id"],
                             "updatedOn": ngb_user_details["notify_refsys_id"]
                         }
-                        remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
-                    elif ngb_user_details.get("app_request_type") == myserv_varriable_list.notification_type_ngb_cc4:
+                        remote_response = ngb_apiServices.shared_apiServices.send_success(shared_api_data)
+                    elif ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_erp:
                         shared_api_data = {
                             "postingDate": ngb_user_details["app_request_type"],
                             "amount": ngb_user_details["app_request_type"],
@@ -925,9 +933,9 @@ def update_notify_status_inhouse_app():
                             "remark": ngb_user_details["app_request_type"],
                             "consumerNo": ngb_user_details["app_request_type"],
                         }
-                        remote_response = shared_apiServices_callingforNGB.shared_apiServices.send_success(shared_api_data)
+                        remote_response = ngb_apiServices.shared_apiServices.send_success(shared_api_data)
                     else:
-                        return jsonify({"msg": "Notification Type is not allowed to push data to NGB."}), 400                    
+                        return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400
                     if remote_response is not None and remote_response['status_code'] == 200:
                         update_query = {
                             "notify_status": data["notify_status"],
@@ -947,24 +955,23 @@ def update_notify_status_inhouse_app():
                                 action_history = update_actionhistory.post_actionhistory_request(username, data)
                                 if action_history:
                                     log_entry_event.log_api_call(response_data)
-                                    return jsonify({"msg": f"Notification {notify_status_response} Successfully {result.modified_count}"}), 200
+                                    print(f"Request completed successfully at {request.full_path}")
+                                    return jsonify({"msg": f"Notification {data['notify_status']} Successfully {result.modified_count}"}), 200
                                 else:
+                                    print(f"Request failed with error at {request.full_path}")
                                     return jsonify({"msg": "Failed to update action history,Please Try Again."}), 500
                             except Exception as e:
+                                print(f"Request failed with error at {request.full_path}")
                                 return jsonify({"msg": str(e)}), 500
                     else:
+                        print(f"Request failed with error at {request.full_path}")
                         return jsonify({"msg": "Something went wrong while updating Notification into remote servers"}), 400
-                    
-                elif ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_erp :
-                    return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400    
-       
-        else:
-              return jsonify({"msg": "You are not authorized to Change Notification Status otherthan PENDING"}), 403
     except Exception as e:
-            return jsonify({"msg": f"Request failed with error: {str(e)}"}), 500
+        print(f"Request failed with error at {request.full_path}")
+        return jsonify({"msg": f"Request failed with error: {str(e)}"}), 500
     finally:
-            log_entry_event.mongo_dbconnect_close()
-            mpwz_notifylist.mongo_dbconnect_close()
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
 
 @android_api.route('/dashboard-api-logs-hits-count', methods=['GET'])
 @jwt_required()

@@ -12,7 +12,7 @@ class MongoCollection:
     def insert_one(self, data):
         try:
             result = self.collection.insert_one(data)
-            print(f"Insert result: {result}")  # Debugging
+            # print(f"Insert result: {result}")  # Debugging
             return result  # Return the raw result
         except Exception as e:
             print(f"Error while inserting data: {e}")
@@ -21,7 +21,7 @@ class MongoCollection:
     def insert_many(self, data):
         try:
             result = self.collection.insert_many(data)
-            print(f"Insert many result: {result.inserted_ids}")  # Debugging
+            # print(f"Insert many result: {result.inserted_ids}")  # Debugging
             return result  # Return the raw result
         except Exception as e:
             print(f"Error while inserting data: {e}")

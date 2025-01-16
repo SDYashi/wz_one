@@ -21,4 +21,6 @@ class myserv_varriable_list:
     notification_status_APPROVED='APPROVED'
     notification_status_PENDING='PENDING'
     notification_status_REJECTED='REJECTED'
-    notification_status_REASSIGNED='REASSIGNED'
+    notification_status_REASSIGNED='REASSIGNED'    
+    notification_type_erp_leave='LEAVE'
+    notification_type_erp_tada='TADA'
