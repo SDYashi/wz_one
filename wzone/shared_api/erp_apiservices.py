@@ -2,6 +2,14 @@ from flask import jsonify
 import requests 
 
 class erp_apiservices:
+        
+    def send_success(data):
+        response = {
+            "status_code": 200,
+            "msg": "Successfully sent to ERP",  
+            "data": data
+        }
+        return response
 
     @staticmethod
     def notify_erp_toupdate_status(data):

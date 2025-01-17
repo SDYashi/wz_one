@@ -162,8 +162,9 @@ def post_integrated_app():
                     "response_at": str(datetime.datetime.now())
                 }
                 log_entry_event.log_api_call(response_data) 
-                print("Request completed successfully for new app integration.")
-                return jsonify(app_name_list), 200
+                print("Request completed successfully for new app integration.")                
+                app_name=data['app_name']
+                return jsonify({"msg": f"New App {app_name} Add Successfully "}), 201
             else:
                 return jsonify({"msg": "Unable to add new app details in the system, try again..."}), 500
     except Exception as e:
@@ -180,6 +181,7 @@ def post_integrated_app():
 def post_notify_status():
     try:
         mpwz_notify_status = MongoCollection("mpwz_notify_status")
+        mpwz_integrated_app_collection = MongoCollection("mpwz_integrated_app")
         log_entry_event = myserv_update_users_logs()
         seq_gen = myserv_generate_mpwz_id_forrecords()
         username = get_jwt_identity()
@@ -188,7 +190,11 @@ def post_notify_status():
             return jsonify({"msg": "button_name is required"}), 400 
         elif'module_name' not in data:
             return jsonify({"msg": "module_name is required"}), 400 
-        else:        
+        else:           
+
+            if not mpwz_integrated_app_collection.find_one({"app_name": data['module_name']}):
+                return jsonify({"msg": "Incoming request occurred from invalid app_source."}), 400
+            
             existing_record = mpwz_notify_status.find_one({"button_name": data["button_name"], "module_name": data["module_name"]})
             if existing_record:      
                 return jsonify({"msg": "Records with button_name already existed in database."}), 400
@@ -214,7 +220,9 @@ def post_notify_status():
                             } 
                     log_entry_event.log_api_call(response_data) 
                     print("Request completed successfully for adding new status.")
-                    return jsonify(new_status), 201
+                    app_name=data['button_name']
+                    module_name=data['module_name']
+                    return jsonify({"msg": f"New Status {module_name} for App {app_name} "}), 201
                 else:
                     return jsonify({"msg": "Error while adding new status into database"}), 500
     except Exception as e:
@@ -232,6 +240,7 @@ def post_notify_status():
 def post_add_button_status():
     try:
         mpwz_buttons = MongoCollection("mpwz_buttons")
+        mpwz_integrated_app_collection = MongoCollection("mpwz_integrated_app")
         log_entry_event = myserv_update_users_logs()
         seq_gen = myserv_generate_mpwz_id_forrecords()
         username = get_jwt_identity()
@@ -242,6 +251,10 @@ def post_add_button_status():
         for field in required_fields:
             if field not in data:
                 return jsonify({"msg": f"{field} is required"}), 400 
+                     
+
+        if not mpwz_integrated_app_collection.find_one({"app_name": data['app_source']}):
+                return jsonify({"msg": "Incoming request occurred from invalid app_source."}), 400
 
         # Check for existing record
         existing_record = mpwz_buttons.find_one({"button_name": data["button_name"]})
@@ -272,8 +285,10 @@ def post_add_button_status():
                 "response_at": str(datetime.datetime.now())
             } 
             log_entry_event.log_api_call(response_data) 
-            print("Request completed successfully for adding new button status.")
-            return jsonify(new_status), 201
+            
+            app_name=data['button_name']
+            module_name=data['app_source']
+            return jsonify({"msg": f"New Status button {module_name} for App {app_name} "}), 201
         else:
             return jsonify({"msg": "Error while adding new button status into database"}), 500
 

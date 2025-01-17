@@ -49,15 +49,15 @@ class myserv_update_mpwzintegrationusers_frommpwzusers:
                     print(f"{insert_records}user created successfully for {username}")
                     insert_records=insert_records+1
                     new_users.append(new_user)
-            else:
-                print(f"user already created in one app {username}") 
+            # else:
+            #     print(f"user already created in one app {username}") 
         
         # Return response
         if new_users:
             return {"new_users": new_users,
                     "msg": f"{insert_records} new users created successfully."}
         else:
-            return {"message": "No new user found for id creation."}
+            return {"msg": "No new user found for id creation."}
 
     def mongo_dbconnect_close(self):
         status = self.mongo_db.close_connection()

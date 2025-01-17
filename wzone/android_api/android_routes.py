@@ -12,7 +12,7 @@ from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_i
 from myservices.myserv_update_users_logs import myserv_update_users_logs
 from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
 from myservices.myserv_connection_forblueprints import MongoCollection
-from shared_api import ngb_apiServices
+from shared_api import ngb_apiServices,erp_apiservices
 from myservices.myserv_update_dbservices import myserv_update_dbservices
 from myservices.myserv_update_actionhistory import myserv_update_actionhistory
 from . import android_api
@@ -131,7 +131,62 @@ def login():
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_integration_users_collection.mongo_dbconnect_close()
-    
+
+@android_api.route('/login-admin', methods=['POST'])
+def login_admin():
+    try:
+        mpwz_integration_users_collection = MongoCollection("mpwz_integration_users")
+        log_entry_event = myserv_update_users_logs()
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        access_token = ''
+        
+        user = mpwz_integration_users_collection.find_one({"username": username})
+        if user:
+            stored_hashed_password = user['password']
+            user_role = user['user_role']
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
+                current_datetime = datetime.datetime.now()
+
+                if user_role == myserv_varriable_list.ADMIN_USER_ROLE:
+                    token_fromdb = user['token_app']
+                    token_expiredon_fromdb = datetime.datetime.fromisoformat(user['token_expiredon'])
+                    
+                    if token_expiredon_fromdb < current_datetime:
+                        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=365))
+                        jwt_claims = decode_token(access_token)
+                        update_query = {
+                            "token_app": access_token,
+                            "token_issuedon": datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat(),
+                            "token_expiredon": datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat(),
+                        }
+                        mpwz_integration_users_collection.update_one({"username": username}, update_query)
+                    else:
+                        try:
+                            jwt_claims = decode_token(token_fromdb)
+                            if jwt_claims:
+                                access_token = token_fromdb
+                        except Exception as e:
+                            return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
+                else:
+                    return jsonify({"msg": "Invalid user_role authentication error"}), 401
+
+                response = jsonify(access_token=access_token)
+                print(f"Request completed successfully: {response}")
+                return response, 200
+            else:
+                return jsonify({"msg": "Invalid username or password"}), 401
+        else:
+            return jsonify({"msg": "Invalid username or password"}), 401
+
+    except Exception as error:
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(error)}), 500
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_integration_users_collection.mongo_dbconnect_close()
+     
 @android_api.route('/changepassword', methods=['PUT'])
 @jwt_required()
 def change_password():
@@ -204,6 +259,42 @@ def view_profile():
     finally : 
          log_entry_event.mongo_dbconnect_close() 
          mpwz_integration_users.mongo_dbconnect_close()
+@android_api.route('/userlist', methods=['GET'])
+@jwt_required()
+def view_user_list():
+    try:
+        mpwz_integration_users = MongoCollection("mpwz_users")
+        log_entry_event = myserv_update_users_logs()
+        
+        # Retrieve all user profiles from the database
+        users = list(mpwz_integration_users.find({}))
+
+        # Process each user to convert ObjectId to string and handle bytes
+        for user in users:
+            user['_id'] = str(user['_id'])
+            for key, value in user.items():
+                if isinstance(value, bytes):
+                    user[key] = base64.b64encode(value).decode('utf-8')
+
+        response_data = {
+            "msg": "User  list loaded successfully",
+            "current_api": request.full_path,
+            "client_ip": request.remote_addr,
+            "response_at": str(datetime.datetime.now()),
+            "user_count": len(users),
+        }
+        log_entry_event.log_api_call(response_data)
+        print(f"Request completed successfully: {response_data}")
+        
+        return jsonify(users), 200
+
+    except Exception as e:
+        print(f"Request failed with error: {str(e)}")
+        return jsonify({"msg": f"An error occurred while retrieving the user list. error: {str(e)}"}), 500
+    
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_integration_users.mongo_dbconnect_close()
 
 @android_api.route('/notify-status', methods=['GET'])
 @jwt_required()
@@ -890,6 +981,7 @@ def update_notify_status_inhouse_app():
         update_actionhistory = myserv_update_actionhistory()
         username = get_jwt_identity()
         data = request.get_json()
+        remote_response=""
         required_fields = ["mpwz_id", "notify_status", "notify_refsys_id", "remarks_byapprover", "notify_to_id"]
 
         if not all(field in data for field in required_fields):
@@ -900,42 +992,72 @@ def update_notify_status_inhouse_app():
             "notify_to_id": data["notify_to_id"],
             "notify_refsys_id": data["notify_refsys_id"]
         }
-        ngb_user_details = mpwz_notifylist.find_one(query)
+        db_user_details = mpwz_notifylist.find_one(query)
 
-        if ngb_user_details is None:
+        if db_user_details is None:
             return jsonify({"msg": "Notification details not found in database"}), 404
         else:
-            if ngb_user_details["notify_status"] != myserv_varriable_list.notification_status_PENDING:
+            if db_user_details["notify_status"] != myserv_varriable_list.notification_status_PENDING:
                 return jsonify({"msg": "You are not authorized to change notification status otherthan pending"}), 400
             else:
-                if ngb_user_details["notify_to_id"] != username:
+                if db_user_details["notify_to_id"] != username:
                     return jsonify({"msg": "You are not authorized to update this notification ."}), 403
                 else:
-                    if ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_ngb:
-                        shared_api_data = {
-                            "id": ngb_user_details["notify_refsys_id"],
-                            "locationCode": ngb_user_details["notify_refsys_id"],
-                            "approver": ngb_user_details["notify_refsys_id"],
-                            "billId": ngb_user_details["notify_refsys_id"],
-                            "billCorrectionProfileInitiatorId": ngb_user_details["notify_refsys_id"],
-                            "status": data["notify_refsys_id"],
-                            "remark": ngb_user_details["notify_refsys_id"],
-                            "updatedBy": ngb_user_details["notify_refsys_id"],
-                            "updatedOn": ngb_user_details["notify_refsys_id"]
-                        }
-                        remote_response = ngb_apiServices.shared_apiServices.send_success(shared_api_data)
-                    elif ngb_user_details.get("app_source") == myserv_varriable_list.integrated_app_erp:
-                        shared_api_data = {
-                            "postingDate": ngb_user_details["app_request_type"],
-                            "amount": ngb_user_details["app_request_type"],
-                            "code": ngb_user_details["app_request_type"],
-                            "ccbRegisterNo": ngb_user_details["app_request_type"],
-                            "remark": ngb_user_details["app_request_type"],
-                            "consumerNo": ngb_user_details["app_request_type"],
-                        }
-                        remote_response = ngb_apiServices.shared_apiServices.send_success(shared_api_data)
-                    else:
-                        return jsonify({"msg": "Notification Type is not allowed to push data to ERP."}), 400
+                    if db_user_details.get("app_source") == myserv_varriable_list.integrated_app_ngb:   
+                        if db_user_details.get("app_request_type") == myserv_varriable_list.notification_type_ngb_ccb:
+                            shared_api_data = {
+                                "id": db_user_details["notify_refsys_id"],
+                                "locationCode": db_user_details["notify_refsys_id"],
+                                "approver": db_user_details["notify_refsys_id"],
+                                "billId": db_user_details["notify_refsys_id"],
+                                "billCorrectionProfileInitiatorId": db_user_details["notify_refsys_id"],
+                                "status": data["notify_refsys_id"],
+                                "remark": db_user_details["notify_refsys_id"],
+                                "updatedBy": db_user_details["notify_refsys_id"],
+                                "updatedOn": db_user_details["notify_refsys_id"]
+                            }
+                            remote_response = ngb_apiServices.ngb_apiServices.send_success(shared_api_data)
+
+                        elif db_user_details.get("app_request_type") == myserv_varriable_list.notification_type_ngb_cc4:
+                            shared_api_data = {
+                                "postingDate": db_user_details["app_request_type"],
+                                "amount": db_user_details["app_request_type"],
+                                "code": db_user_details["app_request_type"],
+                                "ccbRegisterNo": db_user_details["app_request_type"],
+                                "remark": db_user_details["app_request_type"],
+                                "consumerNo": db_user_details["app_request_type"],
+                            }
+                            remote_response = ngb_apiServices.ngb_apiServices.send_success(shared_api_data)
+                        else:
+                             return jsonify({"msg": "App Source is not allowed to push data NGB."}), 400
+                        
+                    elif db_user_details.get("app_source") == myserv_varriable_list.integrated_app_erp:  
+                        if db_user_details.get("app_request_type") == myserv_varriable_list.notification_type_erp_leave:
+                            shared_api_data = {
+                                "id": db_user_details["notify_refsys_id"],
+                                "locationCode": db_user_details["notify_refsys_id"],
+                                "approver": db_user_details["notify_refsys_id"],
+                                "billId": db_user_details["notify_refsys_id"],
+                                "billCorrectionProfileInitiatorId": db_user_details["notify_refsys_id"],
+                                "status": data["notify_refsys_id"],
+                                "remark": db_user_details["notify_refsys_id"],
+                                "updatedBy": db_user_details["notify_refsys_id"],
+                                "updatedOn": db_user_details["notify_refsys_id"]
+                            }                
+                            remote_response = erp_apiservices.erp_apiservices.send_success(shared_api_data)
+                        elif db_user_details.get("app_request_type") == myserv_varriable_list.notification_type_erp_tada:
+                            shared_api_data = {
+                                "postingDate": db_user_details["app_request_type"],
+                                "amount": db_user_details["app_request_type"],
+                                "code": db_user_details["app_request_type"],
+                                "ccbRegisterNo": db_user_details["app_request_type"],
+                                "remark": db_user_details["app_request_type"],
+                                "consumerNo": db_user_details["app_request_type"],
+                            }                   
+                            remote_response = erp_apiservices.erp_apiservices.send_success(shared_api_data)
+                        else:
+                            return jsonify({"msg": "App Source is not allowed to push data ERP."}), 400
+                    
                     if remote_response is not None and remote_response['status_code'] == 200:
                         update_query = {
                             "notify_status": data["notify_status"],
