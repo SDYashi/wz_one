@@ -111,7 +111,7 @@ def login():
                         except Exception as e:
                             return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
 
-                    response_data = {"request_by": username, "message": "Token Issued successfully for Login"}
+                    response_data = {"request_by": username, "msg": "Token Issued successfully for Login"}
                     log_entry_event.log_api_call(response_data)
 
                 else:
@@ -170,7 +170,7 @@ def login_admin():
                         except Exception as e:
                             return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
                 else:
-                    return jsonify({"msg": "Invalid user_role authentication error"}), 401
+                   return jsonify({"msg": f"Invalid username or password {user_role} not allowed"}), 401
 
                 response = jsonify(access_token=access_token)
                 print(f"Request completed successfully: {response}")
@@ -265,11 +265,21 @@ def view_user_list():
     try:
         mpwz_integration_users = MongoCollection("mpwz_users")
         log_entry_event = myserv_update_users_logs()
+
+        # Get pagination parameters
+        page_no = int(request.args.get('page_no', 1))
+        page_size = int(request.args.get('page_size', 100))
         
-        # Retrieve all user profiles from the database
-        users = list(mpwz_integration_users.find({}))
+        # Calculate skip and limit values for pagination
+        skip = (page_no - 1) * page_size
+        limit = page_size
+
+        # Retrieve paginated user profiles from the database
+        users_cursor = mpwz_integration_users.collection.find().skip(skip).limit(limit)
+        users = list(users_cursor)
 
         # Process each user to convert ObjectId to string and handle bytes
+        total_count = mpwz_integration_users.count_documents({})
         for user in users:
             user['_id'] = str(user['_id'])
             for key, value in user.items():
@@ -277,23 +287,26 @@ def view_user_list():
                     user[key] = base64.b64encode(value).decode('utf-8')
 
         response_data = {
-            "msg": "User  list loaded successfully",
+            "msg": "User list loaded successfully",
             "current_api": request.full_path,
             "client_ip": request.remote_addr,
             "response_at": str(datetime.datetime.now()),
             "user_count": len(users),
+            "page_no": page_no,
+            "page_size": page_size,
+            "total_count": total_count
         }
         log_entry_event.log_api_call(response_data)
         print(f"Request completed successfully: {response_data}")
-        
-        return jsonify(users), 200
+
+        return jsonify({"users": users, "total_count": total_count,"msg":"profiles loaded successfully"}), 200
 
     except Exception as e:
         print(f"Request failed with error: {str(e)}")
         return jsonify({"msg": f"An error occurred while retrieving the user list. error: {str(e)}"}), 500
-    
-    finally: 
-        log_entry_event.mongo_dbconnect_close() 
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
         mpwz_integration_users.mongo_dbconnect_close()
 
 @android_api.route('/notify-status', methods=['GET'])
@@ -696,281 +709,6 @@ def pending_notification_list():
          mpwz_integrated_app.mongo_dbconnect_close() 
          mpwz_buttons.mongo_dbconnect_close() 
  
-@android_api.route('/dashboard-total-notify-count', methods=['GET'])
-@jwt_required()
-def total_notification_count():
-    try:
-        mpwz_notifylist = MongoCollection("mpwz_notifylist")
-        log_entry_event = myserv_update_users_logs()
-        username = get_jwt_identity()
-        
-        response_data = {
-            'app_notifications_count': {}
-        }
-        
-        match_stage = {
-            'notify_to_id': username
-        }
-        
-        pipeline = [
-            {
-                '$match': match_stage
-            },
-            {
-                '$group': {
-                    '_id': {
-                        'app_source': '$app_source',
-                        'notify_status': '$notify_status'
-                    },
-                    'count': {'$sum': 1}
-                }
-            }
-        ]
-        
-        # Execute the aggregation pipeline and get the result
-        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
-
-        # Debugging - Print the raw notification_counts to check its structure
-        print("Notification Counts:", notification_counts)
-
-        if not notification_counts:
-            return jsonify({"msg": f"No notifications found for the user {username}."}), 404
-
-        for doc in notification_counts:
-            # Ensure `doc` is a dictionary and contains the expected fields
-            if '_id' in doc and isinstance(doc['_id'], dict):
-                app_source = doc['_id'].get('app_source')
-                notify_status = doc['_id'].get('notify_status')
-                count = doc.get('count')
-
-                if app_source and notify_status:
-                    # Initialize the app_source dictionary if it doesn't exist
-                    if app_source not in response_data['app_notifications_count']:
-                        response_data['app_notifications_count'][app_source] = {}
-
-                    # Set the count for the specific notify_status
-                    response_data['app_notifications_count'][app_source][notify_status] = count
-            else:
-                raise ValueError(f"Invalid structure for _id field in document: {doc}")
-
-        # Log the event
-        log_entry_data = {
-            "msg": f"Dashboard pending request count loaded successfully for {username}",
-            "current_api": request.full_path,
-            "client_ip": request.remote_addr,
-            "response_at": str(datetime.datetime.now())
-        }
-        log_entry_event.log_api_call(log_entry_data)
-
-        print("Request completed successfully")
-        return jsonify(response_data['app_notifications_count']), 200
-
-    except Exception as e:
-        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-
-    finally:
-        log_entry_event.mongo_dbconnect_close()
-        mpwz_notifylist.mongo_dbconnect_close()
-
-@android_api.route('/dashboard-statuswise-notify-count', methods=['GET'])
-@jwt_required()
-def statuswise_notification_count():
-    try:
-        mpwz_notifylist = MongoCollection("mpwz_notifylist")
-        log_entry_event = myserv_update_users_logs()
-
-        username = get_jwt_identity()
-        response_data = {
-            'total_count': 0,
-            'status_count': {}
-        }
-        
-        # Match stage to find notifications either sent to or from the user
-        match_stage = {
-            '$or': [
-                {'notify_to_id': username},
-                {'notify_from_id': username}
-            ]
-        }
-        
-        pipeline = [
-            {
-                '$match': match_stage
-            },
-            {
-                '$group': {
-                    '_id': {
-                        'notify_status': '$notify_status'
-                    },
-                    'count': {'$sum': 1}
-                }
-            }
-        ]
-        
-        # Execute the aggregation pipeline
-        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
-
-        # Process the aggregation results
-        for doc in notification_counts:
-            if '_id' in doc and isinstance(doc['_id'], dict):
-                notify_status = doc['_id'].get('notify_status')
-                count = doc.get('count', 0)
-
-                if notify_status:
-                    # Update the count for the specific notify_status
-                    response_data['status_count'][notify_status] = response_data['status_count'].get(notify_status, 0) + count
-                    response_data['total_count'] += count
-            else:
-                raise ValueError(f"Invalid structure for document: {doc}")
-
-        # Log the event
-        if response_data['total_count'] > 0:
-            log_entry_data = {
-                "msg": f"Dashboard status-wise count loaded successfully for {username}",
-                "current_api": request.full_path,
-                "client_ip": request.remote_addr,
-                "response_at": str(datetime.datetime.now())
-            }
-            log_entry_event.log_api_call(log_entry_data)
-
-            print("Request completed successfully")
-            # Return the response with total counts and status counts
-            return jsonify({
-                "total_count": response_data['total_count'],
-                "status_count": response_data['status_count']
-            }), 200
-        else:
-            return jsonify({
-                "status_count": {
-                    "APPROVED": 0,
-                    "PENDING": 0,
-                    "REJECTED": 0,
-                    "REASSIGNED": 0
-                },
-                "total_count": 0
-            }), 404
-            # return jsonify({"msg": f"No notifications found for the user {username}."}), 404
-
-    except Exception as e:
-        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-
-    finally:
-        log_entry_event.mongo_dbconnect_close()
-        mpwz_notifylist.mongo_dbconnect_close()
-
-@android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
-@jwt_required()
-def dashboard_action_history():
-    try:
-        mpwz_notifylist = MongoCollection("mpwz_user_action_history")
-        log_entry_event = myserv_update_users_logs()
-        username = get_jwt_identity()
-        response_data = []
-        query = {
-            'notify_status': {'$in': ['APPROVED', 'REJECTED', 'REASSIGNED']},
-            # 'notify_to_id': {'$regex': f'^{username}'} 
-        }        
-        # Fetch data using query
-        notifications = mpwz_notifylist.find_sortall(query).sort("action_at", -1).limit(5)
-
-        for notification in notifications:
-            filtered_notification = {
-                "mpwz_id": notification.get("mpwz_id"),
-                "notify_status": notification.get("notify_status"),
-                "notify_refsys_id": notification.get("notify_refsys_id"),
-                "notify_to_id": notification.get("notify_to_id"),
-                "sequence_no": notification.get("sequence_no"),
-                "action_by": notification.get("action_by"),
-                "action_at": notification.get("action_at")
-            }
-            response_data.append(filtered_notification)
-        # Log the response statuses
-        if response_data:
-                    response_data_logs = {
-                                "msg": f"request List loaded successfully for {username}",
-                                "current_api": request.full_path,
-                                "client_ip": request.remote_addr,
-                                "response_at": str(datetime.datetime.now())
-                    } 
-                    log_entry_event.log_api_call(response_data_logs) 
-                    print("Request completed successfully")
-                    return jsonify(response_data), 200   
-        else:
-            return jsonify({"msg": "No notifications found."}), 400
-    except Exception as e:
-        print(f"An error occurred while processing the request. Exception: {str(e)}")
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_notifylist.mongo_dbconnect_close() 
-
-
-@android_api.route('/statuswise-notify-list', methods=['GET'])
-@jwt_required()
-def statuswise_notification_list():
-    try:
-        mpwz_notifylist = MongoCollection("mpwz_notifylist")
-        mpwz_buttons = MongoCollection("mpwz_buttons")
-        log_entry_event = myserv_update_users_logs()
-        username = get_jwt_identity()
-        notification_status = request.args.get('notification_status')  
-        response_data=[]        
-        query = {
-            'notify_to_id': username,
-            # 'notify_from_id': username,
-            'notify_status':notification_status
-        }        
-        # Fetch data using query
-        notifications = mpwz_notifylist.find(query)
-
-        for notification in notifications:
-            # Create a new dictionary with only the required fields
-            if notification_status==myserv_varriable_list.notification_status_PENDING:                
-                app_type=notification.get("app_source")
-                unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
-            else:
-                unique_button_names=[]   
-
-            filtered_notification = {
-                "app_request_type": notification.get("app_request_type"),
-                "app_source": notification.get("app_source"),
-                "app_source_appid": notification.get("app_source_appid"),
-                "buttons": unique_button_names,
-                "mpwz_id": notification.get("mpwz_id"),
-                "notify_comments": notification.get("notify_comments"),
-                "notify_datetime": notification.get("notify_datetime"),
-                "notify_description": notification.get("notify_description"),
-                "notify_from_id": notification.get("notify_from_id"),
-                "notify_from_name": notification.get("notify_from_name"),
-                "notify_intiatedby": notification.get("notify_intiatedby"),
-                "notify_notes": notification.get("notify_notes"),
-                "notify_refsys_id": notification.get("notify_refsys_id"),
-                "notify_status": notification.get("notify_status"),
-                "notify_to_id": notification.get("notify_to_id"),
-                "notify_to_name": notification.get("notify_to_name")
-            }
-            response_data.append(filtered_notification)
-        # Log the response statuses
-        if response_data:
-                    response_data_logs = {
-                                "msg": f"request List loaded successfully for {username}",
-                                "current_api": request.full_path,
-                                "client_ip": request.remote_addr,
-                                "response_at": str(datetime.datetime.now())
-                    } 
-                    log_entry_event.log_api_call(response_data_logs) 
-                    print("Request completed successfully")
-                    return jsonify(response_data), 200   
-        else:
-            return jsonify({"msg": "No notifications found."}), 400
-    except Exception as e:
-        print(f"An error occurred while processing the request. Exception: {str(e)}")
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_notifylist.mongo_dbconnect_close() 
 
 @android_api.route('/update-notify-inhouse-app', methods=['POST'])
 @jwt_required()
@@ -1094,6 +832,282 @@ def update_notify_status_inhouse_app():
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
+
+
+@android_api.route('/dashboard-total-notify-count', methods=['GET'])
+@jwt_required()
+def total_notification_count():
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_notifylist")
+        log_entry_event = myserv_update_users_logs()
+        username = get_jwt_identity()
+        
+        response_data = {
+            'app_notifications_count': {}
+        }
+        
+        # match_stage = {
+        #     'notify_to_id': username
+        # }
+        
+        pipeline = [
+            # {
+            #     '$match': match_stage
+            # },
+            {
+                '$group': {
+                    '_id': {
+                        'app_source': '$app_source',
+                        'notify_status': '$notify_status'
+                    },
+                    'count': {'$sum': 1}
+                }
+            }
+        ]
+        
+        # Execute the aggregation pipeline and get the result
+        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
+
+        # Debugging - Print the raw notification_counts to check its structure
+        print("Notification Counts:", notification_counts)
+
+        if not notification_counts:
+            return jsonify({"msg": f"No notifications found for the user {username}."}), 404
+
+        for doc in notification_counts:
+            # Ensure `doc` is a dictionary and contains the expected fields
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                app_source = doc['_id'].get('app_source')
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count')
+
+                if app_source and notify_status:
+                    # Initialize the app_source dictionary if it doesn't exist
+                    if app_source not in response_data['app_notifications_count']:
+                        response_data['app_notifications_count'][app_source] = {}
+
+                    # Set the count for the specific notify_status
+                    response_data['app_notifications_count'][app_source][notify_status] = count
+            else:
+                raise ValueError(f"Invalid structure for _id field in document: {doc}")
+
+        # Log the event
+        log_entry_data = {
+            "msg": f"Dashboard pending request count loaded successfully for {username}",
+            "current_api": request.full_path,
+            "client_ip": request.remote_addr,
+            "response_at": str(datetime.datetime.now())
+        }
+        log_entry_event.log_api_call(log_entry_data)
+
+        print("Request completed successfully")
+        return jsonify(response_data['app_notifications_count']), 200
+
+    except Exception as e:
+        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
+
+@android_api.route('/dashboard-statuswise-notify-count', methods=['GET'])
+@jwt_required()
+def statuswise_notification_count():
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_notifylist")
+        log_entry_event = myserv_update_users_logs()
+
+        username = get_jwt_identity()
+        response_data = {
+            'total_count': 0,
+            'status_count': {}
+        }
+        
+        # Match stage to find notifications either sent to or from the user
+        match_stage = {
+            '$or': [
+                {'notify_to_id': username},
+                {'notify_from_id': username}
+            ]
+        }
+        
+        pipeline = [
+            # {
+            #     '$match': match_stage
+            # },
+            {
+                '$group': {
+                    '_id': {
+                        'notify_status': '$notify_status'
+                    },
+                    'count': {'$sum': 1}
+                }
+            }
+        ]
+        
+        # Execute the aggregation pipeline
+        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
+
+        # Process the aggregation results
+        for doc in notification_counts:
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count', 0)
+
+                if notify_status:
+                    # Update the count for the specific notify_status
+                    response_data['status_count'][notify_status] = response_data['status_count'].get(notify_status, 0) + count
+                    response_data['total_count'] += count
+            else:
+                raise ValueError(f"Invalid structure for document: {doc}")
+
+        # Log the event
+        if response_data['total_count'] > 0:
+            log_entry_data = {
+                "msg": f"Dashboard status-wise count loaded successfully for {username}",
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": str(datetime.datetime.now())
+            }
+            log_entry_event.log_api_call(log_entry_data)
+
+            print("Request completed successfully")
+            # Return the response with total counts and status counts
+            return jsonify({
+                "total_count": response_data['total_count'],
+                "status_count": response_data['status_count']
+            }), 200
+        else:
+            return jsonify({
+                "status_count": {
+                    "APPROVED": 0,
+                    "PENDING": 0,
+                    "REJECTED": 0,
+                    "REASSIGNED": 0
+                },
+                "total_count": 0
+            }), 404
+            # return jsonify({"msg": f"No notifications found for the user {username}."}), 404
+
+    except Exception as e:
+        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
+
+@android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
+@jwt_required()
+def dashboard_action_history():
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_user_action_history")
+        log_entry_event = myserv_update_users_logs()
+        username = get_jwt_identity()
+        response_data = []
+        query = {
+            'notify_status': {'$in': ['APPROVED', 'REJECTED', 'REASSIGNED']},
+            # 'notify_to_id': {'$regex': f'^{username}'} 
+        }        
+        # Fetch data using query
+        notifications = mpwz_notifylist.find_sortall(query).sort("action_at", -1).limit(5)
+
+        for notification in notifications:
+            filtered_notification = {
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_status": notification.get("notify_status"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "sequence_no": notification.get("sequence_no"),
+                "action_by": notification.get("action_by"),
+                "action_at": notification.get("action_at")
+            }
+            response_data.append(filtered_notification)
+        # Log the response statuses
+        if response_data:
+                    response_data_logs = {
+                                "msg": f"request List loaded successfully for {username}",
+                                "current_api": request.full_path,
+                                "client_ip": request.remote_addr,
+                                "response_at": str(datetime.datetime.now())
+                    } 
+                    log_entry_event.log_api_call(response_data_logs) 
+                    print("Request completed successfully")
+                    return jsonify(response_data), 200   
+        else:
+            return jsonify({"msg": "No notifications found."}), 400
+    except Exception as e:
+        print(f"An error occurred while processing the request. Exception: {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+    finally : 
+         log_entry_event.mongo_dbconnect_close() 
+         mpwz_notifylist.mongo_dbconnect_close() 
+
+@android_api.route('/statuswise-notify-list', methods=['GET'])
+@jwt_required()
+def statuswise_notification_list():
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_notifylist")
+        mpwz_buttons = MongoCollection("mpwz_buttons")
+        log_entry_event = myserv_update_users_logs()
+        username = get_jwt_identity()
+        notification_status = request.args.get('notification_status')  
+        response_data=[]        
+        query = {
+            'notify_to_id': username,
+            # 'notify_from_id': username,
+            'notify_status':notification_status
+        }        
+        # Fetch data using query
+        notifications = mpwz_notifylist.find(query)
+
+        for notification in notifications:
+            # Create a new dictionary with only the required fields
+            if notification_status==myserv_varriable_list.notification_status_PENDING:                
+                app_type=notification.get("app_source")
+                unique_button_names = mpwz_buttons.find_distinct("button_name", {"app_source": app_type})
+            else:
+                unique_button_names=[]   
+
+            filtered_notification = {
+                "app_request_type": notification.get("app_request_type"),
+                "app_source": notification.get("app_source"),
+                "app_source_appid": notification.get("app_source_appid"),
+                "buttons": unique_button_names,
+                "mpwz_id": notification.get("mpwz_id"),
+                "notify_comments": notification.get("notify_comments"),
+                "notify_datetime": notification.get("notify_datetime"),
+                "notify_description": notification.get("notify_description"),
+                "notify_from_id": notification.get("notify_from_id"),
+                "notify_from_name": notification.get("notify_from_name"),
+                "notify_intiatedby": notification.get("notify_intiatedby"),
+                "notify_notes": notification.get("notify_notes"),
+                "notify_refsys_id": notification.get("notify_refsys_id"),
+                "notify_status": notification.get("notify_status"),
+                "notify_to_id": notification.get("notify_to_id"),
+                "notify_to_name": notification.get("notify_to_name")
+            }
+            response_data.append(filtered_notification)
+        # Log the response statuses
+        if response_data:
+                    response_data_logs = {
+                                "msg": f"request List loaded successfully for {username}",
+                                "current_api": request.full_path,
+                                "client_ip": request.remote_addr,
+                                "response_at": str(datetime.datetime.now())
+                    } 
+                    log_entry_event.log_api_call(response_data_logs) 
+                    print("Request completed successfully")
+                    return jsonify(response_data), 200   
+        else:
+            return jsonify({"msg": "No notifications found."}), 400
+    except Exception as e:
+        print(f"An error occurred while processing the request. Exception: {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+    finally : 
+         log_entry_event.mongo_dbconnect_close() 
+         mpwz_notifylist.mongo_dbconnect_close() 
 
 @android_api.route('/dashboard-api-logs-hits-count', methods=['GET'])
 @jwt_required()

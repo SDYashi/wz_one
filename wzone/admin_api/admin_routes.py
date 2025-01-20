@@ -99,30 +99,50 @@ def create_integration_users_data():
         log_entry_event = myserv_update_users_logs()
         seq_gen = myserv_generate_mpwz_id_forrecords()
         data = request.get_json()
+        username=get_jwt_identity()
+        
         existing_user = mpwz_integration_users.find_one({"username": data.get("username")})
         if existing_user:
             return jsonify({"msg": "Username already exists", "status": "error"}), 400
-        data['mpwz_id'] = seq_gen.get_next_sequence('mpwz_integration_users')  
-        results = mpwz_integration_users.insert_one(data)        
-        if results:
-            response_data = {      "msg": f"Integration User Created successfully ",
-                                    "current_api": request.full_path,
-                                    "client_ip": request.remote_addr,
-                                    "response_at": str(datetime.datetime.now())
-                        } 
-            log_entry_event.log_api_call(response_data)    
-            print(f"Request completed {request.full_path}")
-            return jsonify({"msg": "Data inserted successfully"}), 201
+        
         else:
-            return jsonify({"msg": "No Data inserted. Something went wrong"}), 500        
+            salt = bcrypt.gensalt()
+            # Step 3: Hash the password
+            hashed_password = bcrypt.hashpw(data['password'].encode('utf-8'), salt)
+            hashpassword = hashed_password.decode('utf-8')
+            # Add the new fields to the data dictionary
+            data['mpwz_id'] = seq_gen.get_next_sequence('mpwz_integration_users')  
+            data['status'] = "ACTIVE"         
+            data['password'] = hashpassword
+            data['token_app'] = "ttttttteeeeeesssssstttttttokenapp"
+            data['token_issuedon'] = "2024-12-02T14:01:23"
+            data['token_expiredon'] = "2024-12-02T14:01:23"
+            data['created_by'] = username
+            data['created_on'] = str(datetime.datetime.now())
+            data['updated_by'] = "NA"
+            data['updated_on'] = "NA"
+            
+            results = mpwz_integration_users.insert_one(data)        
+            if results:
+                response_data = {
+                    "msg": "Integration User Created successfully",
+                    "current_api": request.full_path,
+                    "client_ip": request.remote_addr,
+                    "response_at": str(datetime.datetime.now())
+                } 
+                log_entry_event.log_api_call(response_data)    
+                print(f"Request completed {request.full_path}")
+                return jsonify({"msg": f"User Created successfully"}), 201
+            else:
+                return jsonify({"msg": "No Data inserted. Something went wrong"}), 500        
     except Exception as e:
         print(f"Exception occurred: {e}")
         return jsonify({"msg": str(e)}), 400
   
-    finally : 
-         log_entry_event.mongo_dbconnect_close() 
-         mpwz_integration_users.mongo_dbconnect_close()
-         seq_gen.mongo_dbconnect_close()
+    finally: 
+        log_entry_event.mongo_dbconnect_close() 
+        mpwz_integration_users.mongo_dbconnect_close()
+        seq_gen.mongo_dbconnect_close()
 
 @admin_api.route('/notify-integrated-app', methods=['POST'])
 #@admin_api_validator.ip_required
@@ -473,10 +493,10 @@ def update_work_location():
             return jsonify({"error": "User  not found"}), 404
 
         if result.modified_count == 0:
-            return jsonify({"message": "No changes made"}), 200
+            return jsonify({"msg": "No changes made"}), 200
 
         print("Work location code updated request completed successfully.")
-        return jsonify({"message": "Work location code updated successfully"}), 200
+        return jsonify({"msg": "Work location code updated successfully"}), 200
 
     except Exception as e:
         # Handle any other exceptions
