@@ -182,7 +182,7 @@ def post_integrated_app():
                     "response_at": str(datetime.datetime.now())
                 }
                 log_entry_event.log_api_call(response_data) 
-                print("Request completed successfully for new app integration.")                
+                # print("Request completed successfully for new app integration.")                
                 app_name=data['app_name']
                 return jsonify({"msg": f"New App {app_name} Add Successfully "}), 201
             else:
@@ -239,7 +239,7 @@ def post_notify_status():
                                         "response_at": str(datetime.datetime.now())
                             } 
                     log_entry_event.log_api_call(response_data) 
-                    print("Request completed successfully for adding new status.")
+                    # print("Request completed successfully for adding new status.")
                     app_name=data['button_name']
                     module_name=data['module_name']
                     return jsonify({"msg": f"New Status {module_name} for App {app_name} "}), 201
@@ -328,7 +328,7 @@ def update_users():
     user_processor = myserv_update_mpwzintegrationusers_frommpwzusers()
     try:
         response = user_processor.process_users()
-        print("Request completed successfully for updating users.")
+        # print("Request completed successfully for updating users.")
     except Exception as e:
         print(f"An error occurred while fetching data from mpwz_users tables: {str(e)}")
         return jsonify({"msg": "An error occurred while processing users."}), 500
@@ -360,7 +360,7 @@ def sync_databases():
   
         try:
             service.sync_databases()
-            print("Request completed successfully for syncing databases.")
+            # print("Request completed successfully for syncing databases.")
             return jsonify({"msg": "Records updated successfully into mpwz_users table from Power BI warehouse"}), 200
         except Exception as e:
             print(f"An error occurred while processing users: {str(e)}")
@@ -396,7 +396,7 @@ def insert_data_addip_admin():
         admin_data = {"mpwz_id": myseq_mpwz_id}
         data.update(admin_data)
         result = collection.insert_one(data)
-        print("Request completed successfully for inserting data into mpwz_iplist_adminpanel.")
+        # print("Request completed successfully for inserting data into mpwz_iplist_adminpanel.")
         return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200  
     except Exception as e:
         print(f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}")
@@ -435,7 +435,7 @@ def change_password_byadmin_forany():
                 "response_at": str(datetime.datetime.now())
             }
             log_entry_event.log_api_call(response_data)
-        print("Password change request completed successfully.")
+       #  print("Password change request completed successfully.")
         return jsonify({"msg": "Password changed successfully!"}), 200
     except Exception as error:
         print(f"An error occurred: {str(error)}")
@@ -461,7 +461,7 @@ def send_email():
         email_sender.sendemail_connect()
         email_sender.send_email(subject, body, to_email)
         email_sender.sendemail_disconnect()
-        print("Email sent request completed successfully.")
+        # print("Email sent request completed successfully.")
         return jsonify({"msg": f"Email sent to {to_email}"}), 200
     except ConnectionError:
         print("An error occurred while connecting to SMTP server.")
@@ -495,7 +495,7 @@ def update_work_location():
         if result.modified_count == 0:
             return jsonify({"msg": "No changes made"}), 200
 
-        print("Work location code updated request completed successfully.")
+       #  print("Work location code updated request completed successfully.")
         return jsonify({"msg": "Work location code updated successfully"}), 200
 
     except Exception as e:

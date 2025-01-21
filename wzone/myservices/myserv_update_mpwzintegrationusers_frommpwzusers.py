@@ -49,8 +49,8 @@ class myserv_update_mpwzintegrationusers_frommpwzusers:
                     print(f"{insert_records}user created successfully for {username}")
                     insert_records=insert_records+1
                     new_users.append(new_user)
-            # else:
-            #     print(f"user already created in one app {username}") 
+            else:
+                print(f"user already created in one app {username}") 
         
         # Return response
         if new_users:

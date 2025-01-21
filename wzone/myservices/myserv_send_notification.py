@@ -29,7 +29,7 @@ class EmailSender:
 
         try:
             self.server.sendmail(self.username, to_email, msg.as_string())
-            print(f"Email sent request completed successfully for {to_email}.")
+            # print(f"Email sent request completed successfully for {to_email}.")
         except Exception as e:
             print(f"An error occurred while sending email: {str(e)}")
             self.sendemail_disconnect()

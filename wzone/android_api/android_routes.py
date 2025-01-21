@@ -118,7 +118,7 @@ def login():
                     return jsonify({"msg": "Invalid user_role authentication error"}), 401
 
                 response = jsonify(access_token=access_token)
-                print(f"Request completed successfully: {response_data}")
+             #    print(f"Request completed successfully: {response_data}")
                 return response, 200
             else:
                 return jsonify({"msg": "Invalid username or password"}), 401
@@ -173,7 +173,7 @@ def login_admin():
                    return jsonify({"msg": f"Invalid username or password {user_role} not allowed"}), 401
 
                 response = jsonify(access_token=access_token)
-                print(f"Request completed successfully: {response}")
+              #   print(f"Request completed successfully: {response}")
                 return response, 200
             else:
                 return jsonify({"msg": "Invalid username or password"}), 401
@@ -211,7 +211,7 @@ def change_password():
                 "response_at": str(datetime.datetime.now())
             } 
             log_entry_event.log_api_call(response_data)
-            print(f"Request completed successfully: {response_data}")
+           #  print(f"Request completed successfully: {response_data}")
             return jsonify({"msg": "Password changed successfully!"}), 200
         else:
             return jsonify({"msg": "Password not changed. Please try again."}), 400
@@ -247,7 +247,7 @@ def view_profile():
                 "response_at": str(datetime.datetime.now())
             }
             log_entry_event.log_api_call(response_data)
-            print(f"Request completed successfully: {response_data}")
+            # print(f"Request completed successfully: {response_data}")
             return jsonify(user), 200
         else:
             return jsonify({"msg": "User not found in records"}), 404
@@ -297,7 +297,7 @@ def view_user_list():
             "total_count": total_count
         }
         log_entry_event.log_api_call(response_data)
-        print(f"Request completed successfully: {response_data}")
+       #  print(f"Request completed successfully: {response_data}")
 
         return jsonify({"users": users, "total_count": total_count,"msg":"profiles loaded successfully"}), 200
 
@@ -331,7 +331,7 @@ def get_notify_status():
                     "response_at": str(datetime.datetime.now())
                 } 
                 log_entry_event.log_api_call(response_data)
-            print("Request completed successfully.")
+           #  print("Request completed successfully.")
             return jsonify(response_statuses), 200
         else:
             print("No button_name added by mpwz admin.")
@@ -366,7 +366,7 @@ def get_integrated_app_list():
                     "response_at": str(datetime.datetime.now())
                 }                   
                 log_entry_event.log_api_call(response_data)
-            print("Request completed successfully.")
+            # print("Request completed successfully.")
             return jsonify(response_statuses), 200
         else:
             print("No apps added by mpwz admin.")
@@ -453,7 +453,7 @@ def my_request_notification_count():
         }
         log_entry_event.log_api_call(log_data)
 
-        print("Request completed successfully")
+       #  print("Request completed successfully")
         # Return the response data
         return jsonify(response_data), 200
 
@@ -532,7 +532,7 @@ def my_request_notification_list():
                     "response_at": str(datetime.datetime.now())
                 }                   
                 log_entry_event.log_api_call(response_data_log)  
-                print("Request completed successfully")
+                # print("Request completed successfully")
                 return jsonify(response_data), 200             
         else:
             print(f"No pending notifications found for {username}.")
@@ -618,7 +618,7 @@ def pending_notification_count():
         }
         log_entry_event.log_api_call(log_data)
 
-        print("Request completed successfully")
+       #  print("Request completed successfully")
         # Return the response data
         return jsonify(response_data), 200
 
@@ -695,7 +695,7 @@ def pending_notification_list():
                                     "response_at": str(datetime.datetime.now())
             }                     
             log_entry_event.log_api_call(response_data_log)
-            print("Request completed successfully")
+           #  print("Request completed successfully")
             return jsonify(response_data), 200   
         else:
             return jsonify({"msg": "No pending notifications found."}), 400
@@ -815,7 +815,7 @@ def update_notify_status_inhouse_app():
                                 action_history = update_actionhistory.post_actionhistory_request(username, data)
                                 if action_history:
                                     log_entry_event.log_api_call(response_data)
-                                    print(f"Request completed successfully at {request.full_path}")
+                                  #   print(f"Request completed successfully at {request.full_path}")
                                     return jsonify({"msg": f"Notification {data['notify_status']} Successfully {result.modified_count}"}), 200
                                 else:
                                     print(f"Request failed with error at {request.full_path}")
@@ -832,7 +832,6 @@ def update_notify_status_inhouse_app():
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
-
 
 @android_api.route('/dashboard-total-notify-count', methods=['GET'])
 @jwt_required()
@@ -900,7 +899,7 @@ def total_notification_count():
         }
         log_entry_event.log_api_call(log_entry_data)
 
-        print("Request completed successfully")
+        # print("Request completed successfully")
         return jsonify(response_data['app_notifications_count']), 200
 
     except Exception as e:
@@ -914,6 +913,93 @@ def total_notification_count():
 @android_api.route('/dashboard-statuswise-notify-count', methods=['GET'])
 @jwt_required()
 def statuswise_notification_count():
+    try:
+        mpwz_notifylist = MongoCollection("mpwz_notifylist")
+        log_entry_event = myserv_update_users_logs()
+
+        username = get_jwt_identity()
+        response_data = {
+            'total_count': 0,
+            'status_count': {}
+        }
+        
+        # Match stage to find notifications either sent to or from the user
+        match_stage = {
+            '$or': [
+                {'notify_to_id': username},
+                # {'notify_from_id': username}
+            ]
+        }
+        
+        pipeline = [
+            {
+                '$match': match_stage
+            },
+            {
+                '$group': {
+                    '_id': {
+                        'notify_status': '$notify_status'
+                    },
+                    'count': {'$sum': 1}
+                }
+            }
+        ]
+        
+        # Execute the aggregation pipeline
+        notification_counts = list(mpwz_notifylist.aggregate(pipeline))
+
+        # Process the aggregation results
+        for doc in notification_counts:
+            if '_id' in doc and isinstance(doc['_id'], dict):
+                notify_status = doc['_id'].get('notify_status')
+                count = doc.get('count', 0)
+
+                if notify_status:
+                    # Update the count for the specific notify_status
+                    response_data['status_count'][notify_status] = response_data['status_count'].get(notify_status, 0) + count
+                    response_data['total_count'] += count
+            else:
+                raise ValueError(f"Invalid structure for document: {doc}")
+
+        # Log the event
+        if response_data['total_count'] > 0:
+            log_entry_data = {
+                "msg": f"Dashboard status-wise count loaded successfully for {username}",
+                "current_api": request.full_path,
+                "client_ip": request.remote_addr,
+                "response_at": str(datetime.datetime.now())
+            }
+            log_entry_event.log_api_call(log_entry_data)
+
+           #  print("Request completed successfully")
+            # Return the response with total counts and status counts
+            return jsonify({
+                "total_count": response_data['total_count'],
+                "status_count": response_data['status_count']
+            }), 200
+        else:
+            return jsonify({
+                "status_count": {
+                    "APPROVED": 0,
+                    "PENDING": 0,
+                    "REJECTED": 0,
+                    "REASSIGNED": 0
+                },
+                "total_count": 0
+            }), 404
+            # return jsonify({"msg": f"No notifications found for the user {username}."}), 404
+
+    except Exception as e:
+        print(f"An error occurred while processing the request. Please try again later. {str(e)}")
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(e)}), 500
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_notifylist.mongo_dbconnect_close()
+
+@android_api.route('/admin-dashboard-statuswise-notify-count', methods=['GET'])
+@jwt_required()
+def admin_statuswise_notification_count():
     try:
         mpwz_notifylist = MongoCollection("mpwz_notifylist")
         log_entry_event = myserv_update_users_logs()
@@ -972,7 +1058,7 @@ def statuswise_notification_count():
             }
             log_entry_event.log_api_call(log_entry_data)
 
-            print("Request completed successfully")
+           #  print("Request completed successfully")
             # Return the response with total counts and status counts
             return jsonify({
                 "total_count": response_data['total_count'],
@@ -997,6 +1083,7 @@ def statuswise_notification_count():
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
+
 
 @android_api.route('/dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
@@ -1033,7 +1120,7 @@ def dashboard_action_history():
                                 "response_at": str(datetime.datetime.now())
                     } 
                     log_entry_event.log_api_call(response_data_logs) 
-                    print("Request completed successfully")
+                   #  print("Request completed successfully")
                     return jsonify(response_data), 200   
         else:
             return jsonify({"msg": "No notifications found."}), 400
@@ -1098,7 +1185,7 @@ def statuswise_notification_list():
                                 "response_at": str(datetime.datetime.now())
                     } 
                     log_entry_event.log_api_call(response_data_logs) 
-                    print("Request completed successfully")
+                   #  print("Request completed successfully")
                     return jsonify(response_data), 200   
         else:
             return jsonify({"msg": "No notifications found."}), 400
@@ -1115,7 +1202,7 @@ def get_api_hits_count():
     try:
         mpwz_users_api_logs = MongoCollection("mpwz_users_api_logs")
         hits_count = mpwz_users_api_logs.count_documents({})
-        print(f"Request completed successfully: total_api_hits = {hits_count}")
+       #  print(f"Request completed successfully: total_api_hits = {hits_count}")
         return jsonify({"total_api_hits": hits_count}), 200
     except Exception as e:
         print(f"Request failed with error: {str(e)}")
@@ -1130,7 +1217,7 @@ def collection_status():
     try:
         total_rows, total_size_gb, collection_stats = db_service.get_collection_status()   
         # Return the response as JSON
-        print(f"Request completed successfully: total_rows = {total_rows}, total_size_gb = {total_size_gb}, collection_stats = {collection_stats}")
+       #  print(f"Request completed successfully: total_rows = {total_rows}, total_size_gb = {total_size_gb}, collection_stats = {collection_stats}")
         return jsonify({
             "total_rows": total_rows,
             "total_size_gb": total_size_gb,
@@ -1148,7 +1235,7 @@ def get_user_count():
     mpwz_integration_users = MongoCollection("mpwz_integration_users")
     try:
         user_count = mpwz_integration_users.count_documents({})
-        print(f"Request completed successfully: total_users = {user_count}")
+       #  print(f"Request completed successfully: total_users = {user_count}")
         return jsonify({"total_users": user_count}), 200
     except Exception as e:
         print(f"Request failed with error: {str(e)}")
