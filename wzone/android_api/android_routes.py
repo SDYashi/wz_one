@@ -1,6 +1,7 @@
 # android_api/android_routes.py
 import base64
 import datetime
+import random
 import time
 import bcrypt
 import ast  
@@ -793,6 +794,16 @@ def update_notify_status_inhouse_app():
                                 "consumerNo": db_user_details["app_request_type"],
                             }                   
                             remote_response = erp_apiservices.erp_apiservices.send_success(shared_api_data)
+                        elif db_user_details.get("app_request_type") == myserv_varriable_list.notification_type_erp_project:
+                            shared_api_data = {
+                                "postingDate": db_user_details["app_request_type"],
+                                "amount": db_user_details["app_request_type"],
+                                "code": db_user_details["app_request_type"],
+                                "ccbRegisterNo": db_user_details["app_request_type"],
+                                "remark": db_user_details["app_request_type"],
+                                "consumerNo": db_user_details["app_request_type"],
+                            }                   
+                            remote_response = erp_apiservices.erp_apiservices.send_success(shared_api_data)
                         else:
                             return jsonify({"msg": "App Source is not allowed to push data ERP."}), 400
                     
@@ -1243,7 +1254,40 @@ def get_user_count():
     finally:
         mpwz_integration_users.mongo_dbconnect_close()
 
-@android_api.route('/verify-oneapp-url', methods=['GET'])
+@android_api.route('/verify-oneapp-url', methods=['GET', 'POST'])
 def verify_oneapp_url():
     """Verify that the one app backend is working fine"""
-    return jsonify({"msg": "one app backend is working fine"}), 200
+    if request.method == 'GET':
+        return jsonify({"msg": "one app backend is working fine"}), 200
+    elif request.method == 'POST':
+        samples = [
+            "This is a sample text from one app backend",
+            "I am good",
+            "I am great",
+            "I am awesome",
+            "How are you today?",
+            "What are you doing?",
+            "I am feeling happy",
+            "I am feeling sad",
+            "I am feeling angry",
+            "I am feeling excited",
+            "I am feeling bored",
+            "I am feeling tired",
+            "I am feeling hungry",
+            "I am feeling thirsty",
+            "I am feeling sleepy",
+            "I am feeling energetic",
+            "I am feeling lazy",
+            "I am feeling happy to see you",
+            "I am feeling sad to see you",
+            "I am feeling angry to see you",
+            "I am feeling excited to see you",
+            "I am feeling bored to see you",
+            "I am feeling tired to see you",
+            "I am feeling hungry to see you",
+            "I am feeling thirsty to see you",
+            "I am feeling sleepy to see you",
+            "I am feeling energetic to see you",
+            "I am feeling lazy to see you",
+        ]
+        return jsonify({"text": random.choice(samples)}), 200

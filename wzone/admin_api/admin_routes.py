@@ -371,41 +371,6 @@ def sync_databases():
         print(f"An error occurred while connecting to Power BI warehouse: {e}")
         return jsonify({"msg": f"An error occurred while connecting to Power BI warehouse: {str(e)}"}), 500
  
-@admin_api.route('/api/add-user-ip-adminpanel', methods=['POST'])
-#@admin_api_validator.ip_required
-@jwt_required()
-def insert_data_addip_admin():
-    collection = MongoCollection("mpwz_adminui_iplist")
-    log_entry_event = myserv_update_users_logs()
-    seq_gen = myserv_generate_mpwz_id_forrecords()
-    data = request.json
-    # Validate the incoming data
-    if not data or not all(key in data for key in ['username', 'email', 'phone', 'employee_no', 'ip_address']):
-        return jsonify({"error": "Invalid data"}), 400
-
-    # Check for duplicate username
-    if collection.find_one({"username": data['username']}):
-        return jsonify({"error": "Username already exists"}), 400
-
-    # Check for duplicate IP address
-    if collection.find_one({"ip_address": data['ip_address']}):
-        return jsonify({"error": "IP address already exists"}), 400
-    try:
-        
-        myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')                      
-        admin_data = {"mpwz_id": myseq_mpwz_id}
-        data.update(admin_data)
-        result = collection.insert_one(data)
-        # print("Request completed successfully for inserting data into mpwz_iplist_adminpanel.")
-        return jsonify({"inserted_id": str(result.inserted_id),"msg":"Data inserted successfully"}), 200  
-    except Exception as e:
-        print(f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}")
-        return jsonify({"error": f"An error occurred while inserting data into mpwz_iplist_adminpanel: {str(e)}"}), 500
-    finally:
-        log_entry_event.mongo_dbconnect_close()
-        collection.mongo_dbconnect_close()
-        seq_gen.mongo_dbconnect_close()
-
 @admin_api.route('/change-password-byadminuser', methods=['PUT'])
 #@admin_api_validator.ip_required
 @jwt_required()
@@ -507,51 +472,6 @@ def update_work_location():
         mpwz_integration_users.mongo_dbconnect_close()
         log_entry_event.mongo_dbconnect_close()
 
-@admin_api.route('/add-admin-details', methods=['POST'])
-#@admin_api_validator.ip_required
-@jwt_required()
-def add_admin():
-    try:
-        mpwz_communication_adminlist = MongoCollection("mpwz_communication_adminlist")
-        log_entry_event = myserv_update_users_logs()
-        seq_gen = myserv_generate_mpwz_id_forrecords()
-        data = request.get_json()
-
-        # Validate input data
-        if not data or 'name' not in data or 'email' not in data or 'phone' not in data:
-            return jsonify({"error": "Invalid input data"}), 400
-
-        # Check for duplicate entry
-        existing_admin = mpwz_communication_adminlist.find_one({"employee_id": data['employee_id'],"name": data['name'],"email": data['email'], "phone": data['phone']})
-        if existing_admin:
-            return jsonify({"error": "Admin with these details already exists", "data": f"{existing_admin}"}), 400
-
-        # Prepare the document to be inserted
-        myseq_mpwz_id = seq_gen.get_next_sequence('mpwz_notify_status')                      
-        admin_data = {
-            "mpwz_id": myseq_mpwz_id,
-            "app_source": data['app_source'],
-            "employee_id": str(data['employee_id']),
-            "name": data['name'],
-            "email": data['email'],
-            "phone": data['phone'],
-            "created_at": str(datetime.datetime.now()),
-            "updated_at": str(datetime.datetime.now())
-        }
-
-        # Insert the document into the collection
-        result = mpwz_communication_adminlist.insert_one(admin_data)
-
-        # Return the inserted document with its ID
-        return jsonify({"_id": str(result.inserted_id), "msg": "Admin details added successfully"}), 201
-    except Exception as e:
-        print(f"An error occurred while adding admin details: {str(e)}")
-        return jsonify({"error": "An unexpected error occurred", "details": str(e)}), 500
-    finally:
-        mpwz_communication_adminlist.mongo_dbconnect_close()
-        log_entry_event.mongo_dbconnect_close()
-        seq_gen.mongo_dbconnect_close()
-
 @admin_api.route('/admin-dashboard-recent-actiondone-history', methods=['GET'])
 @jwt_required()
 def admin_dashboard_action_history():
@@ -604,4 +524,6 @@ def admin_dashboard_action_history():
     finally:
         log_entry_event.mongo_dbconnect_close()
         mpwz_notifylist.mongo_dbconnect_close()
+
+
 

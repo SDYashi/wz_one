@@ -10,6 +10,16 @@ class erp_apiservices:
             "data": data
         }
         return response
+    
+    @staticmethod
+    def notify_getgis():
+        try:
+            response = requests.get("http://mpezgis.in/DWZ/api/proposed_wk_dtls.php?dc_code=3474908", timeout=5)
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as error_response:
+            return jsonify({"msg": f"Failed to connect EZ GIS Server Due to Error: {error_response} at {error_response.request.url}"}), 401
+
 
     @staticmethod
     def notify_erp_toupdate_status(data):
