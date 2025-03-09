@@ -260,6 +260,8 @@ def view_profile():
     finally : 
          log_entry_event.mongo_dbconnect_close() 
          mpwz_integration_users.mongo_dbconnect_close()
+
+
 @android_api.route('/userlist', methods=['GET'])
 @jwt_required()
 def view_user_list():
