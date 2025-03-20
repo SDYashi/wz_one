@@ -1,8 +1,8 @@
 from flask import request, jsonify
 import datetime
-from myservices.myserv_update_users_logs import myserv_update_users_logs
-from myservices.myserv_connection_forblueprints import MongoCollection
-from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices_oneapp.myserv_update_users_logs import myserv_update_users_logs
+from myservices_oneapp.myserv_connection_forblueprints import MongoCollection
+from myservices_oneapp.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 
 class myserv_update_actionhistory:
     def __init__(self):

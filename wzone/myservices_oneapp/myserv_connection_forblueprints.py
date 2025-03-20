@@ -1,7 +1,7 @@
 from functools import wraps
 
 from flask import jsonify, request
-from  myservices.myserv_connection_mongodb import myserv_connection_mongodb
+from  myservices_oneapp.myserv_connection_mongodb import myserv_connection_mongodb
 
 class MongoCollection:
     def __init__(self, collection_name): 

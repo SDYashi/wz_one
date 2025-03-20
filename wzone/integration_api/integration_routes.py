@@ -5,10 +5,10 @@ import time
 import bcrypt
 from flask import jsonify, request
 from flask_jwt_extended import create_access_token, decode_token, get_jwt_identity, jwt_required
-from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
-from myservices.myserv_update_users_logs import myserv_update_users_logs
-from myservices.myserv_update_users_api_logs import myserv_update_users_api_logs
-from myservices.myserv_connection_forblueprints import MongoCollection
+from myservices_oneapp.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices_oneapp.myserv_update_users_logs import myserv_update_users_logs
+from myservices_oneapp.myserv_update_users_api_logs import myserv_update_users_api_logs
+from myservices_oneapp.myserv_connection_forblueprints import MongoCollection
 from . import integration_api
 
 @integration_api.before_request

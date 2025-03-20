@@ -1,6 +1,6 @@
 import psycopg2
 from pymongo import MongoClient
-from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices_oneapp.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
 class myserv_update_mpwzusers_frombiserver: 
 
     def __init__(self, pg_config, mongo_config):

@@ -1,6 +1,6 @@
 from datetime import datetime
 from pymongo.errors import PyMongoError 
-from myservices.myserv_connection_mongodb import myserv_connection_mongodb 
+from myservices_oneapp.myserv_connection_mongodb import myserv_connection_mongodb 
 
 class myserv_generate_mpwz_id_forrecords:
 

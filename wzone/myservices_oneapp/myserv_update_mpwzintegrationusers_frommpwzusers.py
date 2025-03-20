@@ -1,8 +1,8 @@
 import datetime
 import bcrypt
 from pymongo import MongoClient
-from myservices.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
-from myservices.myserv_connection_mongodb import myserv_connection_mongodb
+from myservices_oneapp.myserv_generate_mpwz_id_forrecords import myserv_generate_mpwz_id_forrecords
+from myservices_oneapp.myserv_connection_mongodb import myserv_connection_mongodb
 
 class myserv_update_mpwzintegrationusers_frommpwzusers:
 

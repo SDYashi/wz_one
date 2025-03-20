@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
-from myservices.myserv_varriable_list import myserv_varriable_list
+from myservices_oneapp.myserv_varriable_list import myserv_varriable_list
 class myserv_connection_mongodb:
     def __init__(self):
         self.uri = myserv_varriable_list.mongo_config_URI

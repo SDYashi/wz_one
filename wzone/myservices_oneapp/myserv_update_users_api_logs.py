@@ -1,7 +1,7 @@
 import datetime
 import json
 from urllib import request
-from myservices.myserv_connection_mongodb import myserv_connection_mongodb
+from myservices_oneapp.myserv_connection_mongodb import myserv_connection_mongodb
 class myserv_update_users_api_logs:
     def __init__(self):  
         self.mongo_db = myserv_connection_mongodb()  
