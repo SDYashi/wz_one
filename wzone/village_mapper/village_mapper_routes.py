@@ -541,7 +541,9 @@ def get_location_code():
             cursor.close()
             conn.close()
         return jsonify({"error": "An error occurred. Please try again later."}), 500
-    return jsonify(loc_code), 200
+    
+    # Wrap the location code in an object or array
+    return jsonify({"location_code": loc_code}), 200
 
 @village_mapper.route('/v1/api/getdashboordstatus', methods=['GET'], endpoint='getdashboordstatusnow')
 @jwt_required()
@@ -594,7 +596,7 @@ def getdashboordstatus():
             results[key] = cursor.fetchone()[0]
         
         total_villages_count = results['unmapped_villages'] + results['mapped_villages']
-        results['villagemapped_percentage'] = round((results['mapped_villages'] * 100) / total_villages_count, 4) if total_villages_count > 0 else 0
+        results['villagemapped_percentage'] = round((results['mapped_villages'] * 100) / total_villages_count, 2) if total_villages_count > 0 else 0
         
         cursor.close()
         conn.close()
@@ -604,3 +606,171 @@ def getdashboordstatus():
         traceback.print_exc()
         return jsonify({"msg": str(e)}), 500
 
+@village_mapper.route('/v1/api/getvillageslistuptoblock', methods=['GET'], endpoint='getvillageslistuptoblock')
+@jwt_required()
+def getvillageslistuptoblock():
+    parliament_name = request.args.get('parliament_name')
+    assembly_name = request.args.get('assembly_name')
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    print(parliament_name, assembly_name)
+    query = """
+        SELECT vi.village_name , vi.village_code, vi.area_type, vi.pincode, vi.is_ward,
+        vblk.block_code, vblk.block_name,
+        vbrcrd.bhu_tehsil_name,vbrcrd.bhu_village_name,
+        vpolu.household_count, vpolu.population_total,
+        locbdy.localbody_code,locbdy.localbody_name,locbdy.local_body_type,
+        subdist.subdistrict_code, subdist.subdistrict_name,
+        dist.district_code, dist.district_name,
+        const.assembly_constituency_eci_code,const.assembly_constituency_name,
+        const.parliament_constituency_eci_code,const.parliament_constituency_name
+        FROM public.vill_villages vi
+        full join public.vill_blocks vblk on vblk.id=vi.block_id
+        full join public.vill_bhu_records vbrcrd on vbrcrd.id=vi.bhuabhilekh_id
+        full join public.vill_population vpolu on vpolu.id=vi.population_id
+        full join public.vill_localbodies  locbdy on locbdy.id=vi.localbody_id
+        full join public.vill_subdistricts subdist on subdist.id=locbdy.subdistrict_id
+        full join public.vill_districts dist on dist.id=subdist.district_id
+        full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
+        where const.parliament_constituency_name = %s AND const.assembly_constituency_name = %s
+    """
+    cursor.execute(query, (parliament_name, assembly_name))
+    villages = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    result = [{
+        'village_name': village[0],
+        'village_code': village[1],
+        'area_type': village[2],
+        'pincode': village[3],
+        'is_ward': village[4],
+        'block_code': village[5],
+        'block_name': village[6],
+        'bhu_tehsil_name': village[7],
+        'bhu_village_name': village[8],
+        'household_count': village[9],
+        'population_total': village[10],
+        'localbody_code': village[11],
+        'localbody_name': village[12],
+        'local_body_type': village[13],
+        'subdistrict_code': village[14],
+        'subdistrict_name': village[15],
+        'district_code': village[16],
+        'district_name': village[17],
+        'assembly_constituency_eci_code': village[18],
+        'assembly_constituency_name': village[19],
+        'parliament_constituency_eci_code': village[20],
+        'parliament_constituency_name': village[21]  
+    } for village in villages]
+
+    return jsonify(result), 200
+
+@village_mapper.route('/v1/api/getconstituencies', methods=['GET'], endpoint='getconstituenciesuptovillages')
+@jwt_required()
+def getconstituenciesuptovillages():
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT 
+    locbdy.localbody_code,locbdy.localbody_name,locbdy.local_body_type,
+    subdist.subdistrict_code, subdist.subdistrict_name,
+    dist.district_code, dist.district_name,
+    const.assembly_constituency_eci_code,const.assembly_constituency_name,
+    const.parliament_constituency_eci_code,const.parliament_constituency_name
+    FROM public.vill_localbodies  locbdy 
+    full join public.vill_subdistricts subdist on subdist.id=locbdy.subdistrict_id
+    full join public.vill_districts dist on dist.id=subdist.district_id
+    full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
+    """
+    cursor.execute(query)
+    constituencies = cursor.fetchall()
+    result = [{
+        'localbody_code': consti[0],
+        'localbody_name': consti[1],
+        'local_body_type': consti[2],
+        'subdistrict_code': consti[3],
+        'subdistrict_name': consti[4],
+        'district_code': consti[5],
+        'district_name': consti[6],
+        'assembly_constituency_eci_code': consti[7],
+        'assembly_constituency_name': consti[8],
+        'parliament_constituency_eci_code': consti[9],
+        'parliament_constituency_name': consti[10]
+    } for consti in constituencies]
+    cursor.close()
+    conn.close()   
+    return jsonify(result), 200
+
+@village_mapper.route('/v1/api/getexistingvillagemapping', methods=['GET'], endpoint='getexistingvillagemapping')
+@jwt_required()
+def getexistingvillagemapping():
+    loc_code = request.args.get('location_code')
+
+    if not loc_code:
+        return jsonify({"error": "Missing 'location_code' parameter"}), 400
+
+    query = """
+    SELECT id, loc_code, group_no, dairy_no, consumer_no, consumer_name, 
+           parliyament_name, assembly_name, district_name, subdistrict_name,
+           localbody_name, village_name, village_code, is_vill_mapped,
+           created_by, created_on, updated_by, updated_on
+    FROM public.vill_cons_mapping 
+    WHERE loc_code = %s
+    """
+
+    try:
+        conn = remote_dboperation.get_connection()
+        with conn.cursor() as cursor:
+            cursor.execute(query, (loc_code,))  # ✅ Pass as tuple
+            consumers = cursor.fetchall()
+
+            # Get column names dynamically
+            column_names = [desc[0] for desc in cursor.description]
+
+        result = [dict(zip(column_names, consumer)) for consumer in consumers]
+        
+        return jsonify(result), 200
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return jsonify({"error": f"An error occurred while fetching data -> {e}"}), 500
+
+    finally:
+        if conn:
+            conn.close()
+
+@village_mapper.route('/v1/api/getchangehistoryvillagemapping', methods=['GET'], endpoint='getchangehistoryvillagemapping')
+@jwt_required()
+def getchangehistoryvillagemapping():
+    location_code = request.args.get('location_code')    
+    if not location_code:
+        return jsonify({"error": "Missing 'loc_code' parameter"}), 400
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT loc_code, group_no, dairy_no, consumer_no, old_village_name, 
+           old_village_code, new_village_name, new_village_code, 
+           is_vill_mapped, created_by, created_on, updated_by, updated_on
+    FROM public.vill_cons_mapping_history
+    WHERE loc_code = %s
+    """    
+    cursor.execute(query, (location_code,))
+    districts = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    result = [ {
+        'loc_code': district[0],
+        'group_no': district[1],
+        'dairy_no': district[2],
+        'consumer_no': district[3],
+        'old_village_name': district[4],
+        'old_village_code': district[5],
+        'new_village_name': district[6],
+        'new_village_code': district[7],
+        'is_vill_mapped': district[8],
+        'created_by': district[9],
+        'created_on': district[10],
+        'updated_by': district[11],
+        'updated_on': district[12]
+    } for district in districts]
+    return jsonify(result), 200
