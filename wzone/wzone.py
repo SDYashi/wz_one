@@ -25,7 +25,7 @@ import pymongo
 # register app with flask
 app = Flask(__name__)
 startup_executed = False
-CORS(app, resources={r"*": {"origins": "http://localhost:4200"}})
+CORS(app, resources={r"*": {"origins": ["*"], "supports_credentials": True}})
 app.config['JWT_SECRET_KEY'] = myserv_varriable_list.JWT_SECRET_KEY
 jwt = JWTManager(app)
 app.register_blueprint(admin_api, url_prefix='/admin')

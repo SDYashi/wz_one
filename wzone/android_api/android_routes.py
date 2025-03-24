@@ -133,61 +133,7 @@ def login():
         log_entry_event.mongo_dbconnect_close()
         mpwz_integration_users_collection.mongo_dbconnect_close()
 
-@android_api.route('/login-admin', methods=['POST'])
-def login_admin():
-    try:
-        mpwz_integration_users_collection = MongoCollection("mpwz_integration_users")
-        log_entry_event = myserv_update_users_logs()
-        data = request.get_json()
-        username = data.get("username")
-        password = data.get("password")
-        access_token = ''
-        
-        user = mpwz_integration_users_collection.find_one({"username": username})
-        if user:
-            stored_hashed_password = user['password']
-            user_role = user['user_role']
-            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
-                current_datetime = datetime.datetime.now()
-
-                if user_role == myserv_varriable_list.ADMIN_USER_ROLE:
-                    token_fromdb = user['token_app']
-                    token_expiredon_fromdb = datetime.datetime.fromisoformat(user['token_expiredon'])
-                    
-                    if token_expiredon_fromdb < current_datetime:
-                        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=365))
-                        jwt_claims = decode_token(access_token)
-                        update_query = {
-                            "token_app": access_token,
-                            "token_issuedon": datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat(),
-                            "token_expiredon": datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat(),
-                        }
-                        mpwz_integration_users_collection.update_one({"username": username}, update_query)
-                    else:
-                        try:
-                            jwt_claims = decode_token(token_fromdb)
-                            if jwt_claims:
-                                access_token = token_fromdb
-                        except Exception as e:
-                            return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
-                else:
-                   return jsonify({"msg": f"Invalid username or password {user_role} not allowed"}), 401
-
-                response = jsonify(access_token=access_token)
-              #   print(f"Request completed successfully: {response}")
-                return response, 200
-            else:
-                return jsonify({"msg": "Invalid username or password"}), 401
-        else:
-            return jsonify({"msg": "Invalid username or password"}), 401
-
-    except Exception as error:
-        return jsonify({"msg": "An error occurred while processing your request", "error": str(error)}), 500
-
-    finally:
-        log_entry_event.mongo_dbconnect_close()
-        mpwz_integration_users_collection.mongo_dbconnect_close()
-     
+    
 @android_api.route('/changepassword', methods=['PUT'])
 @jwt_required()
 def change_password():

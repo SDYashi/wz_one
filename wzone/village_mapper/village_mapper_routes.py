@@ -70,7 +70,8 @@ def get_districts():
     query = """
     SELECT dist.district_name,dist.district_code FROM public.vill_parliament_assembly_constituencies asmbly
     full join public.vill_districts dist on asmbly.district_id=dist.id
-    where asmbly.parliament_constituency_name = %s AND asmbly.assembly_constituency_name = %s
+    WHERE asmbly.parliament_constituency_name = %s AND asmbly.assembly_constituency_name = %s
+    order by dist.district_name ASC 
     """
     cursor.execute(query, (parliament_name, assembly_name))
     districts = cursor.fetchall()
@@ -113,9 +114,26 @@ def get_subdistricts():
         })
     return jsonify(result), 200
 
-@village_mapper.route('/v1/api/getlocalbodies', methods=['GET'], endpoint='get_localbody_records')
+@village_mapper.route('/v1/api/getlocalbodytype', methods=['GET'], endpoint='getlocalbodytype')
 @jwt_required()
-def get_localbodies():
+def get_localbody_type():
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    query = """
+        SELECT distinct local_body_type FROM public.vill_localbodies
+     """
+    cursor.execute(query)
+    localbody_types = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    result = []
+    for localbody_type in localbody_types:
+        result.append({'localbody_type': localbody_type[0]})
+    return jsonify(result), 200
+
+@village_mapper.route('/v1/api/getrurallocalbodies', methods=['GET'], endpoint='get_rurallocalbodies')
+@jwt_required()
+def get_rurallocalbodies():
     parliament_name = request.args.get('parliament_name')
     assembly_name = request.args.get('assembly_name')
     district_name = request.args.get('district_name')
@@ -147,6 +165,39 @@ def get_localbodies():
     
     return jsonify(result), 200
 
+@village_mapper.route('/v1/api/geturbanlocalbodies', methods=['GET'], endpoint='get_urbanlocalbodies')
+@jwt_required()
+def get_urbanlocalbodies():
+    parliament_name = request.args.get('parliament_name')
+    assembly_name = request.args.get('assembly_name')
+    district_name = request.args.get('district_name')
+    locabodytype_name = request.args.get('locabodytype_name')
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT  distinct locbdy.localbody_name,locbdy.local_body_type 
+    FROM public.vill_localbodies as locbdy
+    full join public.vill_districts dist on dist.id=locbdy.district_id
+    full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
+    WHERE const.parliament_constituency_name = %s 
+    AND const.assembly_constituency_name = %s 
+    AND dist.district_name = %s
+    AND locbdy.local_body_type = %s
+    """
+    cursor.execute(query, (parliament_name, assembly_name, district_name, locabodytype_name))
+    localbodies = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    result = []
+    for localbody in localbodies:
+        result.append({
+            'localbody_name': localbody[0],
+            'local_body_type': localbody[1],
+        })
+    
+    return jsonify(result), 200
+
 @village_mapper.route('/v1/api/getvillages', methods=['GET'], endpoint='get_village')
 @jwt_required()
 def get_villages_records():
@@ -157,16 +208,31 @@ def get_villages_records():
     localbody_name = request.args.get('localbody_name')
     conn = remote_dboperation.get_connection()
     cursor = conn.cursor()
-    query = """ 
-    SELECT distinct vi.village_name , vi.village_code 
-    FROM public.vill_villages as vi
-    full join public.vill_localbodies as locbdy on locbdy.id=vi.localbody_id
-    full join public.vill_subdistricts subdist on subdist.id=locbdy.subdistrict_id
-    full join public.vill_districts dist on dist.id=subdist.district_id
-    full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
-    WHERE parliament_constituency_name = %s AND assembly_constituency_name = %s AND district_name = %s AND subdistrict_name = %s AND localbody_name = %s
-    """        
-    cursor.execute(query, (parliament_name, assembly_name, district_name, subdistrict_name, localbody_name))
+
+    if subdistrict_name == 'NA':        
+        query = """ 
+        SELECT distinct vi.village_name, vi.village_code 
+        FROM public.vill_villages as vi
+        full join public.vill_localbodies as locbdy on locbdy.id=vi.localbody_id
+        full join public.vill_districts dist on dist.id=locbdy.district_id
+        full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
+        WHERE const.parliament_constituency_name = %s AND const.assembly_constituency_name = %s AND dist.district_name = %s 
+              AND locbdy.localbody_name = %s 
+        """
+        cursor.execute(query, (parliament_name, assembly_name, district_name, localbody_name))
+    else:        
+        query = """ 
+        SELECT distinct vi.village_name, vi.village_code 
+        FROM public.vill_villages as vi
+        full join public.vill_localbodies as locbdy on locbdy.id=vi.localbody_id
+        full join public.vill_subdistricts subdist on subdist.id=locbdy.subdistrict_id
+        full join public.vill_districts dist on dist.id=subdist.district_id
+        full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
+        WHERE const.parliament_constituency_name = %s AND const.assembly_constituency_name = %s AND dist.district_name = %s 
+              AND subdist.subdistrict_name = %s AND locbdy.localbody_name = %s
+        """
+        cursor.execute(query, (parliament_name, assembly_name, district_name, subdistrict_name, localbody_name))
+
     villages = cursor.fetchall()
     cursor.close()
     conn.close()
@@ -193,6 +259,18 @@ def get_groups_by_loc_code():
     conn.close()
     return jsonify([{'group_no': group[0]} for group in groups])
 
+@village_mapper.route('/v1/api/getdistrictslist', methods=['GET'], endpoint='getgroupslist')
+@jwt_required()
+def get_groups_by_loc_code():
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    query = "SELECT distinct district_name FROM public.vill_districts"
+    cursor.execute(query)
+    district_names = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    return jsonify([{'district_name': district_name[0]} for district_name in district_names])
+
 @village_mapper.route('/v1/api/getdairies', methods=['GET'], endpoint='get_dairy_records')
 @jwt_required()
 def get_dairies_by_group_no():
@@ -207,7 +285,7 @@ def get_dairies_by_group_no():
     result = [{'dairy_no': dairy[0]} for dairy in dairies]
     return jsonify(result)
 
-@village_mapper.route('/v1/api/get_unmapped_consumers', methods=['GET'], endpoint='get_unmapped_consumers')
+@village_mapper.route('/v1/api/getunmappedconsumers', methods=['GET'], endpoint='getunmappedconsumers')
 @jwt_required()
 def get_unmapped_consumers():
     try:
@@ -247,7 +325,7 @@ def get_unmapped_consumers():
         print(f"An error occurred: {e}")
         return jsonify({"error": "An error occurred while fetching consumers data."}), 500
 
-@village_mapper.route('/v1/api/get_mapped_consumers', methods=['GET'], endpoint='get_mapped_consumers')
+@village_mapper.route('/v1/api/getmappedconsumers', methods=['GET'], endpoint='getmappedconsumers')
 @jwt_required()
 def get_mapped_consumers():
     group_no = request.args.get('group_no')
@@ -303,9 +381,31 @@ def get_mapped_consumers():
         if conn:
             conn.close()
 
-@village_mapper.route('/v1/api/get_mapped_consumersforedit', methods=['GET'], endpoint='get_mapped_consumersforedit')
+@village_mapper.route('/v1/api/getmappedconsumersforedit', methods=['GET'], endpoint='getmappedconsumersforedit')
 @jwt_required()
 def get_mapped_consumersforedit():
+    # parliyament_name = request.args.get('parliament_name')
+    # assembly_name = request.args.get('assembly_name')
+    # district_name = request.args.get('district_name')
+    # subdistrict_name = request.args.get('subdistrict_name')
+    # localbody_name = request.args.get('localbody_name')
+    # village_name = request.args.get('village_name')
+    # group_no = request.args.get('group_no')
+    # loc_code = request.args.get('loc_code')
+    # query_params = [parliyament_name, assembly_name, district_name, subdistrict_name, localbody_name, village_name, group_no, loc_code]
+    # print(query_params)
+    # query = """
+    #         SELECT * FROM public.vill_cons_mapping
+    #         WHERE parliyament_name = %s
+    #         AND assembly_name = %s
+    #         AND district_name = %s
+    #         AND subdistrict_name = %s
+    #         AND localbody_name = %s
+    #         AND village_name = %s
+    #         AND group_no = %s
+    #         AND loc_code = %s
+    # """
+
     parliyament_name = request.args.get('parliament_name')
     assembly_name = request.args.get('assembly_name')
     district_name = request.args.get('district_name')
@@ -315,16 +415,11 @@ def get_mapped_consumersforedit():
     group_no = request.args.get('group_no')
     loc_code = request.args.get('loc_code')
 
-    query_params = [parliyament_name, assembly_name, district_name, subdistrict_name, localbody_name, village_name, group_no, loc_code]
+    query_params = [village_name, group_no, loc_code]
     print(query_params)
     query = """
             SELECT * FROM public.vill_cons_mapping
-            WHERE parliyament_name = %s
-            AND assembly_name = %s
-            AND district_name = %s
-            AND subdistrict_name = %s
-            AND localbody_name = %s
-            AND village_name = %s
+            where village_name = %s
             AND group_no = %s
             AND loc_code = %s
     """
@@ -364,10 +459,12 @@ def get_mapped_consumersforedit():
         if conn:
             conn.close()
 
-@village_mapper.route('/v1/api/add_bulk_mapped_consumer', methods=['POST'], endpoint='add_bulk_mapped_consumer')
+@village_mapper.route('/v1/api/addbulkmappedconsumer', methods=['POST'], endpoint='addbulkmappedconsumer')
 @jwt_required()
 def add_bulk_mapped_consumer():
     try: 
+        current_user = get_jwt_identity()
+        current_datetime = datetime.datetime.now()
         data = request.get_json()
         if not data or "consumer_nos" not in data:
             return jsonify({"error": "Invalid payload format. Expected 'consumer_nos' list."}), 400
@@ -400,10 +497,10 @@ def add_bulk_mapped_consumer():
                 consumer.get("village_name", None),
                 consumer.get("village_code", None),
                 consumer.get("is_vill_mapped", True),  
-                consumer.get("created_by", None),
-                consumer.get("created_on", None),
-                consumer.get("updated_by", None),
-                consumer.get("updated_on", None)
+                current_user  ,
+                current_datetime,
+                current_user  ,
+                current_datetime
             )
             cursor.execute(query, values)
             inserted_ids.append(cursor.fetchone()[0])   
@@ -416,7 +513,7 @@ def add_bulk_mapped_consumer():
             WHERE consumer_no = %s
             """
             for consumer in consumers:
-                cursor.execute(query, (datetime.datetime.now(), consumer.get("consumer_no", None)))
+                cursor.execute(query, (current_datetime, consumer.get("consumer_no", None)))
         except Exception as e:
             print(f"An error occurred while updating data: {e}")
             conn.rollback()
@@ -431,10 +528,12 @@ def add_bulk_mapped_consumer():
         print(traceback.format_exc())
         return jsonify({"error": "An error occurred while inserting data."}), 500
   
-@village_mapper.route('/v1/api/update_existing_mappedconsumer', methods=['PUT'], endpoint='update_existing_mappedconsumer')
+@village_mapper.route('/v1/api/updateexistingmappedconsumer', methods=['PUT'], endpoint='updateexistingmappedconsumer')
 @jwt_required()
 def update_existing_mapped_consumer():
-    try:
+    try:        
+        current_user = get_jwt_identity()
+        current_datetime = datetime.datetime.now()
         data = request.get_json()
         if not data or not isinstance(data, dict) or "consumers" not in data:
             return jsonify({"error": "Invalid payload format. Expected 'consumers' list."}), 400
@@ -463,8 +562,8 @@ def update_existing_mapped_consumer():
                 consumer.get("localbody_name"),
                 consumer.get("village_name"),
                 consumer.get("village_code"),
-                consumer.get("updated_by"),
-                datetime.datetime.now(),
+                 current_user,
+                current_datetime,
                 consumer.get("consumer_no"),
             )
             cursor.execute(query, values)
@@ -496,8 +595,8 @@ def update_existing_mapped_consumer():
                     consumer.get("is_vill_mapped" , None),
                     consumer.get("created_by" , None),
                     consumer.get("created_on" , None),
-                    consumer.get("updated_by" , None),
-                    consumer.get("updated_on" , None)
+                    current_user,
+                    current_datetime
                 )
                 print(f"inserted new record for consumer_no: {consumer_no} with values: {values}")
                 cursor.execute(query, values2)    
@@ -665,9 +764,13 @@ def getvillageslistuptoblock():
 
     return jsonify(result), 200
 
-@village_mapper.route('/v1/api/getconstituencies', methods=['GET'], endpoint='getconstituenciesuptovillages')
+@village_mapper.route('/v1/api/getconstituencies', methods=['GET'], endpoint='getconstituencies')
 @jwt_required()
 def getconstituenciesuptovillages():
+    district_name = request.args.get('district_name')
+    if not district_name:
+        return jsonify({"error": "Missing 'district_name' parameter"}), 400
+
     conn = remote_dboperation.get_connection()
     cursor = conn.cursor()
     query = """
@@ -681,8 +784,9 @@ def getconstituenciesuptovillages():
     full join public.vill_subdistricts subdist on subdist.id=locbdy.subdistrict_id
     full join public.vill_districts dist on dist.id=subdist.district_id
     full join public.vill_parliament_assembly_constituencies const on const.district_id=locbdy.district_id
+    where dist.district_name = %s
     """
-    cursor.execute(query)
+    cursor.execute(query, (district_name,))
     constituencies = cursor.fetchall()
     result = [{
         'localbody_code': consti[0],
@@ -721,7 +825,7 @@ def getexistingvillagemapping():
     try:
         conn = remote_dboperation.get_connection()
         with conn.cursor() as cursor:
-            cursor.execute(query, (loc_code,))  # ✅ Pass as tuple
+            cursor.execute(query, (loc_code,)) 
             consumers = cursor.fetchall()
 
             # Get column names dynamically
@@ -774,3 +878,102 @@ def getchangehistoryvillagemapping():
         'updated_on': district[12]
     } for district in districts]
     return jsonify(result), 200
+
+@village_mapper.route('/v1/api/gettagedvillagesindc', methods=['GET'],endpoint='gettagedvillagesindc')
+@jwt_required()
+def get_allvillages():    
+    location_code = request.args.get('location_code')   
+    conn = remote_dboperation.get_connection()
+    cursor = conn.cursor()
+    query = """
+    SELECT * FROM public.vill_dc_villages WHERE loc_code = %s
+    """
+    cursor.execute(query, (location_code,))
+    villages = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    # Convert the result to a list of dictionaries
+    village_list = []
+    for village in villages:
+        village_dict = {
+            'id': village[0],
+            'loc_code': village[1],
+            'parliyament_name': village[2],
+            'parliyament_code': village[3],
+            'assembly_name': village[4],
+            'assembly_code': village[5],
+            'district_name': village[6],
+            'district_code': village[7],
+            'subdistrict_name': village[8],
+            'subdistrict_code': village[9],
+            'localbody_name': village[10],
+            'localbody_code': village[11],
+            'village_name': village[12],
+            'village_code': village[13],
+            'created_by': village[14],
+            'created_on': village[15],
+            'updated_by': village[16],
+            'updated_on': village[17]
+        }
+        village_list.append(village_dict)
+
+    return jsonify(village_list)
+
+@village_mapper.route('/v1/api/addvillageswithdc', methods=['POST'], endpoint='addvillageswithdc')
+@jwt_required()
+def add_village_with_dc():
+    try:
+        current_user = get_jwt_identity()
+        current_datetime = datetime.datetime.now()
+        data = request.json
+        conn = remote_dboperation.get_connection()
+        cursor = conn.cursor()
+
+        # Check if the combination of loc_code and village_code already exists
+        check_query = """
+            SELECT 1 FROM public.vill_dc_villages WHERE loc_code = %s AND village_code = %s
+        """
+        cursor.execute(check_query, (data['loc_code'], data['village_code']))
+        exists = cursor.fetchone()
+
+        if exists:
+            cursor.close()
+            conn.close()
+            return jsonify({'message': f'Village already added here DC/Zone Code{data['loc_code']} with Village Code {data['village_code']}!'}), 409  # 409 Conflict status
+
+        # Insert the village if it does not exist
+        insert_query = """
+            INSERT INTO public.vill_dc_villages (
+                loc_code, parliyament_name, parliyament_code, 
+                assembly_name, assembly_code, district_name, 
+                district_code, subdistrict_name, subdistrict_code, 
+                localbody_name, localbody_code, village_name, 
+                village_code, created_by, created_on, updated_by, updated_on
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """  
+        cursor.execute(insert_query, (
+            data['loc_code'],
+            data['parliyament_name'],
+            data['parliyament_code'],
+            data['assembly_name'],
+            data['assembly_code'],
+            data['district_name'],
+            data['district_code'],
+            data['subdistrict_name'],
+            data['subdistrict_code'],
+            data['localbody_name'],
+            data['localbody_code'],
+            data['village_name'],
+            data['village_code'],
+            current_user,
+            current_datetime,
+            current_user,
+            current_datetime
+        ))
+        conn.commit()
+        cursor.close()
+        conn.close()
+        return jsonify({'message': 'Village added successfully!'}), 201
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500

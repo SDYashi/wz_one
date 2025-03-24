@@ -20,42 +20,8 @@ from myservices_oneapp.myserv_connection_mongodb import myserv_connection_mongod
 from myservices_oneapp.myserv_varriable_list import myserv_varriable_list
 
 # define class for admin api
-class AdminAPI:
-    def __init__(self, collection_name): 
-        self.mongo_db = myserv_connection_mongodb()  
-        self.dbconnect = self.mongo_db.get_connection() 
-        self.collection = self.dbconnect[collection_name]
-        self.allowed_ips = set()  # Cached set of allowed IPs
 
-    def get_allowed_ips(self):
-        """Retrieve all allowed IPs from the collection, caching the result."""
-        if not self.allowed_ips:
-            print("Allowed IPs not cached, retrieving from database...")
-            self.allowed_ips = set(self.collection.distinct('ip_address'))
-            print(f"Retrieved allowed IPs: {self.allowed_ips}")
-        else:
-            print("Using cached allowed IPs.")
-        return self.allowed_ips
 
-    def ip_required(self, f):
-        """Decorator to restrict access based on IP address."""
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            remote_ip = request.remote_addr
-            print(f"Received request from IP: {remote_ip}")
-            allowed_ips = self.get_allowed_ips()
-            print(f"Allowed IPs: {allowed_ips}")
-
-            if remote_ip not in allowed_ips:
-                print("Access denied: IP not in allowed list")
-                return jsonify({"error": "Access denied, you are not allowed"}), 403
-
-            print("Access granted: IP is in allowed list")
-            return f(*args, **kwargs)
-
-        return decorated_function
-admin_api_validator = AdminAPI(collection_name="mpwz_adminui_iplist")
- 
 @admin_api.before_request
 def before_request():
     request.start_time = time.time() 
@@ -89,6 +55,61 @@ def after_request(response):
     finally:
         log_entry_event_api.mongo_dbconnect_close()
 
+@admin_api.route('/login', methods=['POST'])
+def login_admin():
+    try:
+        mpwz_integration_users_collection = MongoCollection("mpwz_integration_users")
+        log_entry_event = myserv_update_users_logs()
+        data = request.get_json()
+        username = data.get("username")
+        password = data.get("password")
+        access_token = ''
+        
+        user = mpwz_integration_users_collection.find_one({"username": username})
+        if user:
+            stored_hashed_password = user['password']
+            user_role = user['user_role']
+            if bcrypt.checkpw(password.encode('utf-8'), stored_hashed_password):
+                current_datetime = datetime.datetime.now()
+
+                if user_role == myserv_varriable_list.ADMIN_USER_ROLE:
+                    token_fromdb = user['token_app']
+                    token_expiredon_fromdb = datetime.datetime.fromisoformat(user['token_expiredon'])
+                    
+                    if token_expiredon_fromdb < current_datetime:
+                        access_token = create_access_token(identity=username, expires_delta=datetime.timedelta(days=365))
+                        jwt_claims = decode_token(access_token)
+                        update_query = {
+                            "token_app": access_token,
+                            "token_issuedon": datetime.datetime.fromtimestamp(jwt_claims['iat']).isoformat(),
+                            "token_expiredon": datetime.datetime.fromtimestamp(jwt_claims['exp']).isoformat(),
+                        }
+                        mpwz_integration_users_collection.update_one({"username": username}, update_query)
+                    else:
+                        try:
+                            jwt_claims = decode_token(token_fromdb)
+                            if jwt_claims:
+                                access_token = token_fromdb
+                        except Exception as e:
+                            return jsonify({"msg": f"Token is not valid: {str(e)}"}), 401
+                else:
+                   return jsonify({"msg": f"Invalid username or password {user_role} not allowed"}), 401
+
+                response = jsonify(access_token=access_token)
+              #   print(f"Request completed successfully: {response}")
+                return response, 200
+            else:
+                return jsonify({"msg": "Invalid username or password"}), 401
+        else:
+            return jsonify({"msg": "Invalid username or password"}), 401
+
+    except Exception as error:
+        return jsonify({"msg": "An error occurred while processing your request", "error": str(error)}), 500
+
+    finally:
+        log_entry_event.mongo_dbconnect_close()
+        mpwz_integration_users_collection.mongo_dbconnect_close()
+ 
 #Admin controller api for web users
 @admin_api.route('/shared-call/api/v1/create-integration-users', methods=['POST'])
 #@admin_api_validator.ip_required
